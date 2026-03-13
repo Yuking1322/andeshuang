@@ -3,10 +3,11 @@ import { getAllPackages } from '../data/environments.js'
 export function generateScript(packageIds, options = {}) {
   const normalizedOptions =
     typeof options === 'boolean'
-      ? { useChocolatey: options, mode: 'install' }
+      ? { useChocolatey: options, mode: 'install', sourceLabel: '动态脚本' }
       : {
           useChocolatey: options.useChocolatey ?? true,
-          mode: options.mode ?? 'install'
+          mode: options.mode ?? 'install',
+          sourceLabel: options.sourceLabel ?? '动态脚本'
         }
 
   const allPackages = getAllPackages()
@@ -16,16 +17,16 @@ export function generateScript(packageIds, options = {}) {
 
   if (normalizedOptions.mode === 'uninstall') {
     return normalizedOptions.useChocolatey
-      ? generateChocolateyBat(selectedPackages, 'uninstall')
-      : generateScoopBat(selectedPackages, 'uninstall')
+      ? generateChocolateyBat(selectedPackages, 'uninstall', normalizedOptions.sourceLabel)
+      : generateScoopBat(selectedPackages, 'uninstall', normalizedOptions.sourceLabel)
   }
 
   return normalizedOptions.useChocolatey
-    ? generateChocolateyBat(selectedPackages, 'install')
-    : generateScoopBat(selectedPackages, 'install')
+    ? generateChocolateyBat(selectedPackages, 'install', normalizedOptions.sourceLabel)
+    : generateScoopBat(selectedPackages, 'install', normalizedOptions.sourceLabel)
 }
 
-function generateChocolateyBat(packages, mode) {
+function generateChocolateyBat(packages, mode, sourceLabel) {
   const chocoPackages = packages.filter((pkg) => pkg.choco)
   const pipPackages = packages.filter((pkg) => pkg.installMethod === 'pip')
   const manualPackages = packages.filter((pkg) => pkg.installMethod === 'manual')
@@ -35,12 +36,13 @@ function generateChocolateyBat(packages, mode) {
   const packageAction = isInstall ? 'install' : 'uninstall'
   const logPrefix = isInstall ? 'install' : 'uninstall'
   const pipCommand = isInstall ? 'pip install' : 'pip uninstall -y'
+  const scriptSource = `安的爽 ${sourceLabel}`
 
   let bat = `@echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul
 title 安的爽 - ${scriptTitle}
-:: 生成时间: ${new Date().toLocaleString('zh-CN')}
+:: 脚本来源: ${scriptSource}
 :: 包管理器: Chocolatey
 :: 模式: ${operationText}
 
@@ -70,7 +72,7 @@ cls
 
 echo ===================================== > "%LOGFILE%"
 echo 安的爽 ${operationText}日志 >> "%LOGFILE%"
-echo 生成时间: ${new Date().toLocaleString('zh-CN')} >> "%LOGFILE%"
+echo 脚本来源: ${scriptSource} >> "%LOGFILE%"
 echo ===================================== >> "%LOGFILE%"
 echo.
 echo =====================================
@@ -203,7 +205,7 @@ pause >nul
   return bat
 }
 
-function generateScoopBat(packages, mode) {
+function generateScoopBat(packages, mode, sourceLabel) {
   const scoopPackages = packages.filter((pkg) => pkg.scoop)
   const pipPackages = packages.filter((pkg) => pkg.installMethod === 'pip')
   const manualPackages = packages.filter((pkg) => pkg.installMethod === 'manual')
@@ -213,12 +215,13 @@ function generateScoopBat(packages, mode) {
   const packageAction = isInstall ? 'install' : 'uninstall'
   const logPrefix = isInstall ? 'install' : 'uninstall'
   const pipCommand = isInstall ? 'pip install' : 'pip uninstall -y'
+  const scriptSource = `安的爽 ${sourceLabel}`
 
   let bat = `@echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul
 title 安的爽 - ${scriptTitle}
-:: 生成时间: ${new Date().toLocaleString('zh-CN')}
+:: 脚本来源: ${scriptSource}
 :: 包管理器: Scoop
 :: 模式: ${operationText}
 
@@ -229,7 +232,7 @@ set /a FAILED_COUNT=0
 cls
 echo ===================================== > "%LOGFILE%"
 echo 安的爽 ${operationText}日志 >> "%LOGFILE%"
-echo 生成时间: ${new Date().toLocaleString('zh-CN')} >> "%LOGFILE%"
+echo 脚本来源: ${scriptSource} >> "%LOGFILE%"
 echo ===================================== >> "%LOGFILE%"
 echo.
 echo =====================================

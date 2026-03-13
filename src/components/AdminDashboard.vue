@@ -40,9 +40,15 @@ const adminLinks = computed(() => {
       title: '访问量入口',
       description: dashboards.webAnalytics
         ? '已配置专用的访问量入口，直接跳转查看 Web Analytics。'
-        : '先进入 Cloudflare 总控台，在 Pages 项目的 Analytics / Web Analytics 中查看访问量。',
+        : dashboards.pagesProject
+          ? '如果你已经在 Pages 项目里点了 Web Analytics 的 Enable，可以直接从项目页进入 Metrics 查看访问量。'
+          : '先进入 Cloudflare 总控台，在 Pages 项目的 Metrics / Web Analytics 中查看访问量。',
       href: dashboards.webAnalytics || dashboards.cloudflareHome || 'https://dash.cloudflare.com/',
-      cta: dashboards.webAnalytics ? '查看访问量' : '去 Cloudflare 查访问量'
+      cta: dashboards.webAnalytics
+        ? '查看访问量'
+        : dashboards.pagesProject
+          ? '去项目页看 Metrics'
+          : '去 Cloudflare 查访问量'
     },
     {
       key: 'downloads',
@@ -66,7 +72,11 @@ const adminLinks = computed(() => {
 })
 
 const analyticsStatus = computed(() =>
-  adminState.value.dashboards.webAnalytics ? '已配置专用入口' : '待在 Cloudflare 面板启用/补充链接'
+  adminState.value.dashboards.webAnalytics
+    ? '已配置专用入口'
+    : adminState.value.dashboards.pagesProject
+      ? '可从 Pages 项目进入 Metrics'
+      : '待补充项目入口'
 )
 
 onMounted(async () => {
@@ -118,7 +128,7 @@ onMounted(async () => {
       <section class="admin-card status-card">
         <p class="card-label">Cloudflare Analytics</p>
         <h3>{{ analyticsStatus }}</h3>
-        <p>如果你在 Pages 面板启用了 Web Analytics，后台就可以通过入口页快速跳过去看流量。</p>
+        <p>如果你已经在 Pages 面板点了 Web Analytics 的 Enable，这里至少会把你带回项目入口，不会误导成“还没开”。</p>
         <div class="status-list">
           <p><span>静态资源</span><strong>优先走 Pages</strong></p>
           <p><span>登录接口</span><strong>走 Functions</strong></p>

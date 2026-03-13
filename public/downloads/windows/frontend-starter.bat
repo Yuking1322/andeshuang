@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 chcp 65001 >nul
 title 安的爽 - 开发环境一键安装
-:: 生成时间: 2026/3/13 22:44:58
+:: 脚本来源: 安的爽 Windows 预置包
 :: 包管理器: Chocolatey
 :: 模式: 安装
 
@@ -32,7 +32,7 @@ cls
 
 echo ===================================== > "%LOGFILE%"
 echo 安的爽 安装日志 >> "%LOGFILE%"
-echo 生成时间: 2026/3/13 22:44:58 >> "%LOGFILE%"
+echo 脚本来源: 安的爽 Windows 预置包 >> "%LOGFILE%"
 echo ===================================== >> "%LOGFILE%"
 echo.
 echo =====================================

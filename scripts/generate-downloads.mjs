@@ -18,7 +18,8 @@ for (const preset of windowsPresetDownloads) {
       ? generateDetectionLauncher()
       : generateScript(preset.packageIds, {
           useChocolatey: true,
-          mode: 'install'
+          mode: 'install',
+          sourceLabel: 'Windows 预置包'
         })
 
   await writeFile(filePath, content, 'utf8')
