@@ -1,0 +1,24 @@
+{
+  "name": "andeshuang",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build:downloads": "node scripts/generate-downloads.mjs",
+    "build": "npm run build:downloads && vite build",
+    "preview": "vite preview",
+    "dev:cf": "node scripts/dev-cloudflare.mjs",
+    "deploy:cf": "npm run build && wrangler pages deploy dist"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "element-plus": "^2.13.5",
+    "vue": "^3.5.30"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.5",
+    "vite": "^8.0.0",
+    "wrangler": "^4.6.0"
+  }
+}
