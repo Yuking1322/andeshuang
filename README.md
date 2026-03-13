@@ -82,6 +82,7 @@ LinuxDO Connect 后台建议填写：
 替代方案：
 
 - [免费域名 / 分发 / 备用部署方案](./docs/free-alternatives.md)
+- [上线验收清单](./docs/acceptance-checklist.md)
 
 ## 本地开发
 
