@@ -1,4 +1,4 @@
-import { getLinuxDOConfig } from '../_shared/linuxdo.js'
+import { getLinuxDOConfig, isAdminUser } from '../_shared/linuxdo.js'
 import { readSession } from '../_shared/session.js'
 
 export async function onRequestGet(context) {
@@ -15,7 +15,8 @@ export async function onRequestGet(context) {
 
   return json({
     authenticated: true,
-    user: payload.user
+    user: payload.user,
+    isAdmin: isAdminUser(payload.user, context.env)
   })
 }
 

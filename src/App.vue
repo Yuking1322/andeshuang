@@ -10,6 +10,7 @@ const selectedPackages = ref([])
 const activeView = ref('console')
 const showLoginGuide = ref(false)
 const sessionUser = ref(null)
+const sessionIsAdmin = ref(false)
 const authStatus = ref('loading')
 const authErrorCode = ref('')
 const dashboardState = ref({
@@ -76,8 +77,10 @@ const handleLogout = async () => {
   try {
     await logoutSession()
     sessionUser.value = null
+    sessionIsAdmin.value = false
     authStatus.value = 'unauthenticated'
     selectedPackages.value = []
+    activeView.value = 'console'
     ElMessage.success('已退出登录')
   } catch {
     ElMessage.error('退出登录失败，请稍后重试')
@@ -92,14 +95,20 @@ async function loadSession() {
 
     if (payload.authenticated) {
       sessionUser.value = payload.user
+      sessionIsAdmin.value = Boolean(payload.isAdmin)
+      if (!payload.isAdmin && activeView.value === 'admin') {
+        activeView.value = 'console'
+      }
       authStatus.value = 'authenticated'
       return
     }
 
     sessionUser.value = null
+    sessionIsAdmin.value = false
     authStatus.value = 'unauthenticated'
   } catch {
     sessionUser.value = null
+    sessionIsAdmin.value = false
     authStatus.value = 'unauthenticated'
     if (!authErrorCode.value) {
       authErrorCode.value = 'session_unavailable'
@@ -206,7 +215,12 @@ async function loadSession() {
             <el-button :type="activeView === 'console' ? 'primary' : 'default'" class="chrome-nav-button" @click="activeView = 'console'">
               控制台
             </el-button>
-            <el-button :type="activeView === 'admin' ? 'primary' : 'default'" class="chrome-nav-button" @click="activeView = 'admin'">
+            <el-button
+              v-if="sessionIsAdmin"
+              :type="activeView === 'admin' ? 'primary' : 'default'"
+              class="chrome-nav-button"
+              @click="activeView = 'admin'"
+            >
               管理后台
             </el-button>
           </div>

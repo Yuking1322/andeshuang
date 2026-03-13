@@ -5,6 +5,7 @@ LINUXDO_AUTH_URL=https://connect.linux.do/oauth2/authorize
 LINUXDO_TOKEN_URL=https://connect.linux.do/oauth2/token
 LINUXDO_USER_URL=https://connect.linux.do/api/user
 SESSION_SECRET=
+LINUXDO_ADMIN_USERNAMES=
 CLOUDFLARE_DASHBOARD_URL=https://dash.cloudflare.com/
 CLOUDFLARE_PAGES_PROJECT_URL=
 CLOUDFLARE_WEB_ANALYTICS_URL=

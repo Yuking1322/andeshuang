@@ -16,6 +16,19 @@ export function getLinuxDOConfig(env) {
   }
 }
 
+export function isAdminUser(user, env) {
+  const allowlist = (env.LINUXDO_ADMIN_USERNAMES || '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+
+  if (!allowlist.length) {
+    return false
+  }
+
+  return allowlist.includes(String(user?.username || '').trim().toLowerCase())
+}
+
 export function getMissingConfig(config) {
   return [
     ['LINUXDO_CLIENT_ID', config.clientId],
