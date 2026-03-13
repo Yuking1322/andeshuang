@@ -125,6 +125,9 @@ async function loadSession() {
       <div class="entry-panel">
         <div class="entry-copy">
           <p class="entry-label">安的爽 · Welcome</p>
+          <div class="entry-brand-mark">
+            <img src="/lightning-mark.svg" alt="安的爽闪电标识">
+          </div>
           <h1>先登录，再进入你的环境控制台。</h1>
           <p class="entry-description">
             安的爽现在采用强制登录流程。登录后你可以使用体检、安装、后悔药、预置傻瓜包下载，以及后续的配置同步能力。
@@ -186,8 +189,13 @@ async function loadSession() {
             <span class="light light-green" />
           </div>
           <div class="chrome-brand">
-            <strong>安的爽</strong>
-            <span>Environment Control Console</span>
+            <div class="chrome-brand-mark">
+              <img src="/lightning-mark.svg" alt="安的爽闪电标识">
+            </div>
+            <div class="chrome-brand-copy">
+              <strong>安的爽</strong>
+              <span>Environment Control Console</span>
+            </div>
           </div>
         </div>
 
@@ -439,6 +447,17 @@ async function loadSession() {
   color: #f5f7f6;
 }
 
+.entry-brand-mark {
+  margin-top: 18px;
+}
+
+.entry-brand-mark img {
+  width: 88px;
+  height: 88px;
+  border-radius: 24px;
+  box-shadow: 0 20px 40px rgba(40, 12, 78, 0.28);
+}
+
 .entry-label {
   margin: 0;
   color: rgba(245, 247, 246, 0.7);
@@ -607,16 +626,37 @@ async function loadSession() {
 
 .chrome-brand {
   display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chrome-brand-mark {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 18px rgba(87, 48, 164, 0.22);
+}
+
+.chrome-brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chrome-brand-copy {
+  display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.chrome-brand strong {
+.chrome-brand-copy strong {
   color: #122825;
   font-size: 14px;
 }
 
-.chrome-brand span {
+.chrome-brand-copy span {
   color: #6a7a77;
   font-size: 12px;
 }
