@@ -1,8 +1,15 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { Download, DocumentCopy, FolderOpened, Monitor } from '@element-plus/icons-vue'
+import { DocumentCopy, Download, FolderOpened, Monitor, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { environments, resolveDependencies } from '../data/environments.js'
+import {
+  automationMeta,
+  environments,
+  getDefaultVersionId,
+  getPackageSearchText,
+  resolveDependencies,
+  resolvePackageConfig
+} from '../data/environments.js'
 import { windowsPresetDownloads } from '../data/downloadPresets.js'
 import { generateScript } from '../utils/scriptGenerator.js'
 import {
@@ -14,6 +21,7 @@ import {
 import { getClientPlatform } from '../utils/platform.js'
 
 const DETECTION_STORAGE_KEY = 'andeshuang-detection-snapshot'
+const VERSION_STORAGE_KEY = 'andeshuang-version-selection'
 
 const props = defineProps({
   modelValue: {
@@ -24,9 +32,24 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'dashboard-update'])
 
-const categoryKeys = Object.keys(environments)
-const activeTab = ref(categoryKeys[0] ?? 'frontend')
+const quickSearchOptions = ['Python', 'Docker', 'Ollama', 'Java', '.NET', 'Rust', '数据库', 'AI']
+const filterTabs = [
+  { id: 'all', label: '全部环境', icon: '✨' },
+  ...Object.entries(environments).map(([key, env]) => ({
+    id: key,
+    label: env.name,
+    icon: env.icon
+  }))
+]
+
+const activeTab = ref('all')
+const searchQuery = ref('')
+const automationFilter = ref('all')
+const versionFilter = ref('all')
+const installedFilter = ref('all')
+const onlyPopular = ref(false)
 const selectedPackages = ref([...props.modelValue])
+const selectedVersions = ref(readStoredVersionSelections())
 const showPreview = ref(false)
 const generatedScript = ref('')
 const scriptMode = ref('install')
@@ -44,10 +67,16 @@ watch(
   }
 )
 
+watch(
+  selectedVersions,
+  (value) => persistVersionSelections(value),
+  { deep: true }
+)
+
 const platformInfo = computed(() => getClientPlatform())
 const isWindowsPlatform = computed(() => platformInfo.value.isWindows)
-const selectedCount = computed(() => selectedPackages.value.length)
 const resolvedIds = computed(() => resolveDependencies(selectedPackages.value))
+const selectedCount = computed(() => selectedPackages.value.length)
 const autoDependencyCount = computed(() => Math.max(0, resolvedIds.value.length - selectedPackages.value.length))
 const detectionResults = computed(() => detectionSnapshot.value.results ?? {})
 const hasDetectionData = computed(() => Object.keys(detectionResults.value).length > 0)
@@ -69,8 +98,8 @@ const previewTitle = computed(() =>
 )
 const managerSummary = computed(() =>
   useChocolatey.value
-    ? '适合需要管理员权限的完整安装流程。'
-    : '适合普通权限环境，尽量减少系统级变更。'
+    ? 'Chocolatey 更适合系统级完整安装，管理员权限下覆盖面更广。'
+    : 'Scoop 更轻量，适合偏开发者工具链和普通权限安装。'
 )
 const detectionSummary = computed(() => {
   if (!hasDetectionData.value) {
@@ -102,11 +131,49 @@ const presetDownloads = computed(() =>
 const troubleshootingTips = [
   '日志会保存在脚本所在目录，文件名以 andeshuang-install 或 andeshuang-uninstall 开头。',
   '如果安装失败，优先检查管理员权限、网络代理、包源可用性和软件是否正在运行。',
-  '像 CUDA 这类手动型软件会保留提示，不会被脚本强行安装或卸载。'
+  'CUDA、Docker Desktop 这类环境即使能触发安装，也经常还会要求额外确认或系统能力支持。'
 ]
 
-const isSelected = (packageId) => selectedPackages.value.includes(packageId)
-const getPackageDetection = (packageId) => getDetectionEntry(detectionSnapshot.value, packageId)
+const filteredGroups = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  const groups = activeTab.value === 'all'
+    ? Object.entries(environments)
+    : environments[activeTab.value]
+      ? [[activeTab.value, environments[activeTab.value]]]
+      : []
+
+  return groups
+    .map(([categoryKey, env]) => {
+      const packages = env.packages
+        .map((pkg) => {
+          const resolved = resolvePackageConfig(pkg, selectedVersions.value)
+          return {
+            ...resolved,
+            categoryKey,
+            categoryName: env.name,
+            categoryDescription: env.description,
+            automationMeta: automationMeta[resolved.automation] || automationMeta.guided,
+            detection: getDetectionEntry(detectionSnapshot.value, resolved.id),
+            managerSupport: getManagerSupportLabel(resolved),
+            versionOptions: resolved.versionOptions || [],
+            currentVersionId: selectedVersions.value[resolved.id] || getDefaultVersionId(resolved)
+          }
+        })
+        .filter((pkg) => matchesFilters(pkg, query))
+        .sort(sortPackages)
+
+      return {
+        key: categoryKey,
+        env,
+        packages
+      }
+    })
+    .filter((group) => group.packages.length > 0)
+})
+
+const matchingPackageCount = computed(() =>
+  filteredGroups.value.reduce((count, group) => count + group.packages.length, 0)
+)
 
 watch(
   [
@@ -136,25 +203,56 @@ const emitSelection = () => {
   emit('update:modelValue', [...selectedPackages.value])
 }
 
-const togglePackage = (packageId, checked) => {
-  const selected = isSelected(packageId)
+const isSelected = (packageId) => selectedPackages.value.includes(packageId)
+
+function ensureVersionSelection(packageConfig) {
+  const defaultVersionId = getDefaultVersionId(packageConfig)
+  if (!defaultVersionId || selectedVersions.value[packageConfig.id]) {
+    return
+  }
+
+  selectedVersions.value = {
+    ...selectedVersions.value,
+    [packageConfig.id]: defaultVersionId
+  }
+}
+
+const togglePackage = (packageConfig, checked) => {
+  const selected = isSelected(packageConfig.id)
   const shouldEnable = typeof checked === 'boolean' ? checked : !selected
 
   if (shouldEnable && !selected) {
-    selectedPackages.value = [...selectedPackages.value, packageId]
+    ensureVersionSelection(packageConfig)
+    selectedPackages.value = [...selectedPackages.value, packageConfig.id]
   }
 
   if (!shouldEnable && selected) {
-    selectedPackages.value = selectedPackages.value.filter((id) => id !== packageId)
+    selectedPackages.value = selectedPackages.value.filter((id) => id !== packageConfig.id)
   }
 
   emitSelection()
+}
+
+const updatePackageVersion = (packageConfig, versionId) => {
+  selectedVersions.value = {
+    ...selectedVersions.value,
+    [packageConfig.id]: versionId
+  }
 }
 
 const clearSelection = () => {
   selectedPackages.value = []
   emitSelection()
   ElMessage.info('已清空当前选择')
+}
+
+const clearFilters = () => {
+  searchQuery.value = ''
+  automationFilter.value = 'all'
+  versionFilter.value = 'all'
+  installedFilter.value = 'all'
+  onlyPopular.value = false
+  activeTab.value = 'all'
 }
 
 const handleGenerateScript = () => {
@@ -174,7 +272,8 @@ const handleGenerateScript = () => {
   scriptMode.value = 'install'
   generatedScript.value = generateScript(packageIdsToInstall, {
     useChocolatey: useChocolatey.value,
-    mode: 'install'
+    mode: 'install',
+    selectedVersions: selectedVersions.value
   })
   showPreview.value = true
 }
@@ -189,7 +288,8 @@ const handleGenerateUninstallScript = () => {
   scriptMode.value = 'uninstall'
   generatedScript.value = generateScript(resolvedIds.value, {
     useChocolatey: useChocolatey.value,
-    mode: 'uninstall'
+    mode: 'uninstall',
+    selectedVersions: selectedVersions.value
   })
   showPreview.value = true
 }
@@ -252,15 +352,47 @@ function ensureWindowsAction() {
   return false
 }
 
+function matchesFilters(packageConfig, query) {
+  const searchText = getPackageSearchText(packageConfig)
+
+  if (query && !searchText.includes(query.toLowerCase())) return false
+  if (automationFilter.value !== 'all' && packageConfig.automation !== automationFilter.value) return false
+  if (versionFilter.value === 'versioned' && !packageConfig.versionSelectable) return false
+  if (versionFilter.value === 'simple' && packageConfig.versionSelectable) return false
+  if (installedFilter.value === 'installed' && !packageConfig.detection?.installed) return false
+  if (installedFilter.value === 'missing' && packageConfig.detection?.installed) return false
+  if (onlyPopular.value && !packageConfig.popular) return false
+
+  return true
+}
+
+function sortPackages(left, right) {
+  const leftSelected = isSelected(left.id) ? 1 : 0
+  const rightSelected = isSelected(right.id) ? 1 : 0
+  if (leftSelected !== rightSelected) return rightSelected - leftSelected
+
+  const leftPopular = left.popular ? 1 : 0
+  const rightPopular = right.popular ? 1 : 0
+  if (leftPopular !== rightPopular) return rightPopular - leftPopular
+
+  return left.name.localeCompare(right.name, 'zh-CN')
+}
+
+function getManagerSupportLabel(packageConfig) {
+  const chocolatey = packageConfig.managerActions?.chocolatey?.installCommands?.length > 0
+  const scoop = packageConfig.managerActions?.scoop?.installCommands?.length > 0
+
+  if (chocolatey && scoop) return 'Chocolatey + Scoop'
+  if (chocolatey) return '更适合 Chocolatey'
+  if (scoop) return '更适合 Scoop'
+  return '查看官方入口'
+}
+
 function readStoredDetectionSnapshot() {
-  if (typeof window === 'undefined') {
-    return createEmptyDetectionSnapshot()
-  }
+  if (typeof window === 'undefined') return createEmptyDetectionSnapshot()
 
   const raw = window.localStorage.getItem(DETECTION_STORAGE_KEY)
-  if (!raw) {
-    return createEmptyDetectionSnapshot()
-  }
+  if (!raw) return createEmptyDetectionSnapshot()
 
   try {
     return normalizeDetectionPayload(JSON.parse(raw))
@@ -280,6 +412,26 @@ function removeStoredDetectionSnapshot() {
   window.localStorage.removeItem(DETECTION_STORAGE_KEY)
 }
 
+function readStoredVersionSelections() {
+  if (typeof window === 'undefined') return {}
+
+  const raw = window.localStorage.getItem(VERSION_STORAGE_KEY)
+  if (!raw) return {}
+
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    window.localStorage.removeItem(VERSION_STORAGE_KEY)
+    return {}
+  }
+}
+
+function persistVersionSelections(snapshot) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(VERSION_STORAGE_KEY, JSON.stringify(snapshot))
+}
+
 function downloadTextFile(fileName, content) {
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
   const url = URL.createObjectURL(blob)
@@ -294,10 +446,13 @@ function downloadTextFile(fileName, content) {
 
 function formatVersion(version) {
   if (!version) return ''
-
   const compact = version.replace(/\s+/g, ' ').trim()
-  if (compact.length <= 42) return compact
-  return `${compact.slice(0, 39)}...`
+  return compact.length <= 42 ? compact : `${compact.slice(0, 39)}...`
+}
+
+function applyQuickSearch(term) {
+  searchQuery.value = term
+  activeTab.value = 'all'
 }
 </script>
 
@@ -364,7 +519,7 @@ function formatVersion(version) {
           </div>
 
           <p class="module-copy">
-            勾选你想补齐的环境，系统会自动补齐依赖，并优先跳过已经识别到的已安装内容。
+            这轮已经扩成真正的环境库：支持搜索、筛选、版本选择和不同自动化等级，不再只有“勾选几个包”这么简单。
           </p>
 
           <div v-if="!isWindowsPlatform" class="platform-alert">
@@ -374,8 +529,8 @@ function formatVersion(version) {
           <div class="planner-block">
             <p class="planner-label">安装策略</p>
             <el-radio-group v-model="useChocolatey">
-              <el-radio :value="true">Chocolatey（管理员）</el-radio>
-              <el-radio :value="false">Scoop（普通权限）</el-radio>
+              <el-radio :value="true">Chocolatey（覆盖更广）</el-radio>
+              <el-radio :value="false">Scoop（更轻量）</el-radio>
             </el-radio-group>
             <p class="module-note">{{ managerSummary }}</p>
           </div>
@@ -383,6 +538,9 @@ function formatVersion(version) {
           <div class="module-actions">
             <el-button plain :disabled="selectedCount === 0" @click="clearSelection">
               清空选择
+            </el-button>
+            <el-button plain @click="clearFilters">
+              清空筛选
             </el-button>
             <el-button plain :disabled="selectedCount === 0 || !isWindowsPlatform" @click="handleGenerateUninstallScript">
               后悔药
@@ -405,8 +563,8 @@ function formatVersion(version) {
         <div class="module-header">
           <div>
             <p class="module-label">Windows 傻瓜包</p>
-            <h3>直接下载预置好的常用包</h3>
-            <p class="module-copy compact">适合不想自己选太多项的用户，双击就能开始安装。</p>
+            <h3>直接下载预置好的常用环境包</h3>
+            <p class="module-copy compact">我顺手把预置包也扩了一轮，适合不想自己从零勾选的用户。</p>
           </div>
           <span class="module-chip warm">静态分发</span>
         </div>
@@ -432,7 +590,7 @@ function formatVersion(version) {
         <div class="trouble-box">
           <div>
             <p class="planner-label">报错怎么办</p>
-            <p class="trouble-copy">安装或卸载失败时，不需要让用户一脸懵，先去看脚本旁边的日志文件。</p>
+            <p class="trouble-copy">安装或卸载失败时，不要让用户一脸懵，先去看脚本旁边的日志文件。</p>
           </div>
 
           <ul>
@@ -447,91 +605,219 @@ function formatVersion(version) {
         <div class="module-header">
           <div>
             <p class="module-label">环境软件库</p>
-            <h3>从库里选择你想要的环境组件</h3>
-            <p class="module-copy compact">看到“已安装”时，说明体检结果已经识别到了这个软件。</p>
+            <h3>搜索你真正想配置的环境</h3>
+            <p class="module-copy compact">
+              支持全局搜索、环境分类、自动化等级筛选和版本选择。很多环境都会给出推荐版本，但不会强迫用户接受默认值。
+            </p>
           </div>
           <div class="library-tags">
             <el-tag type="success">已选 {{ selectedCount }}</el-tag>
+            <el-tag type="info">匹配 {{ matchingPackageCount }}</el-tag>
             <el-tag v-if="hasDetectionData && skippedInstalledCount > 0" type="info">将跳过 {{ skippedInstalledCount }}</el-tag>
             <el-tag v-if="!isWindowsPlatform" type="warning">{{ platformInfo.label }} 仅查看模式</el-tag>
           </div>
         </div>
 
+        <div class="search-shell">
+          <el-input
+            v-model="searchQuery"
+            placeholder="搜索环境、语言、工具或场景，例如 Python / Docker / Ollama / Rust"
+            clearable
+            size="large"
+            class="search-input"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+
+          <div class="quick-searches">
+            <button
+              v-for="term in quickSearchOptions"
+              :key="term"
+              type="button"
+              class="quick-chip"
+              @click="applyQuickSearch(term)"
+            >
+              {{ term }}
+            </button>
+          </div>
+
+          <div class="filter-row">
+            <el-select v-model="automationFilter" class="filter-select">
+              <el-option label="全部自动化等级" value="all" />
+              <el-option label="只看真一键" value="one-click" />
+              <el-option label="只看半自动" value="guided" />
+              <el-option label="只看手动补充" value="manual" />
+            </el-select>
+
+            <el-select v-model="versionFilter" class="filter-select">
+              <el-option label="全部版本模式" value="all" />
+              <el-option label="支持版本选择" value="versioned" />
+              <el-option label="无需选版本" value="simple" />
+            </el-select>
+
+            <el-select v-model="installedFilter" class="filter-select">
+              <el-option label="全部安装状态" value="all" />
+              <el-option label="只看已安装" value="installed" />
+              <el-option label="只看待补齐" value="missing" />
+            </el-select>
+
+            <el-switch
+              v-model="onlyPopular"
+              inline-prompt
+              active-text="热门"
+              inactive-text="全部"
+            />
+          </div>
+        </div>
+
         <el-tabs v-model="activeTab" class="env-tabs">
           <el-tab-pane
-            v-for="(env, key) in environments"
-            :key="key"
-            :name="key"
+            v-for="tab in filterTabs"
+            :key="tab.id"
+            :name="tab.id"
           >
             <template #label>
               <span class="tab-label">
-                <span class="tab-icon">{{ env.icon }}</span>
-                {{ env.name }}
+                <span class="tab-icon">{{ tab.icon }}</span>
+                {{ tab.label }}
               </span>
             </template>
 
-            <div class="env-description">
-              <p>{{ env.description }}</p>
-              <el-tag type="info" effect="plain">{{ env.packages.length }} 个软件包</el-tag>
+            <div v-if="filteredGroups.length === 0" class="empty-state">
+              <h4>没有找到符合条件的环境</h4>
+              <p>试试清空筛选，或者换一个关键词，比如 Python、Docker、Ollama、数据库、Rust。</p>
             </div>
 
-            <div class="packages-grid">
-              <article
-                v-for="(pkg, index) in env.packages"
-                :key="pkg.id"
-                class="package-card"
-                :class="{
-                  'is-selected': isSelected(pkg.id),
-                  'is-installed': getPackageDetection(pkg.id).installed
-                }"
-                :style="{ animationDelay: `${index * 0.05}s` }"
-                @click="togglePackage(pkg.id)"
-              >
-                <div class="card-top">
-                  <div class="card-select">
-                    <el-checkbox
-                      :model-value="isSelected(pkg.id)"
-                      @click.stop
-                      @change="(val) => togglePackage(pkg.id, val)"
-                    />
-                    <span class="package-id">{{ pkg.id }}</span>
+            <div
+              v-for="group in filteredGroups"
+              v-else
+              :key="group.key"
+              class="category-group"
+            >
+              <div class="env-description">
+                <div>
+                  <div class="group-title-line">
+                    <span class="group-icon">{{ group.env.icon }}</span>
+                    <strong>{{ group.env.name }}</strong>
                   </div>
-                  <div class="card-badges">
-                    <el-tag v-if="getPackageDetection(pkg.id).installed" type="success" size="small">已安装</el-tag>
-                    <el-tag v-if="pkg.popular" type="warning" size="small">热门</el-tag>
-                    <el-tag v-if="pkg.dependencies?.length" type="info" size="small">有依赖</el-tag>
-                  </div>
+                  <p>{{ group.env.description }}</p>
                 </div>
+                <el-tag type="info" effect="plain">{{ group.packages.length }} 个软件包</el-tag>
+              </div>
 
-                <div class="card-main">
-                  <h4>{{ pkg.name }}</h4>
-                  <p>{{ pkg.description }}</p>
-                </div>
+              <div class="packages-grid">
+                <article
+                  v-for="(pkg, index) in group.packages"
+                  :key="pkg.id"
+                  class="package-card"
+                  :class="{
+                    'is-selected': isSelected(pkg.id),
+                    'is-installed': pkg.detection.installed
+                  }"
+                  :style="{ animationDelay: `${index * 0.04}s` }"
+                  @click="togglePackage(pkg)"
+                >
+                  <div class="card-top">
+                    <div class="card-select">
+                      <el-checkbox
+                        :model-value="isSelected(pkg.id)"
+                        @click.stop
+                        @change="(val) => togglePackage(pkg, val)"
+                      />
+                      <span class="package-id">{{ pkg.id }}</span>
+                    </div>
+                    <div class="card-badges">
+                      <el-tag v-if="pkg.detection.installed" type="success" size="small">已安装</el-tag>
+                      <el-tag v-if="pkg.popular" type="warning" size="small">热门</el-tag>
+                      <el-tag :type="pkg.automationMeta.tone" size="small">{{ pkg.automationMeta.label }}</el-tag>
+                    </div>
+                  </div>
 
-                <div class="card-meta">
-                  <div v-if="getPackageDetection(pkg.id).installed" class="meta-item success">
-                    <span class="meta-label success">状态</span>
-                    <span>
-                      已检测到
-                      <template v-if="formatVersion(getPackageDetection(pkg.id).version)">
-                        · {{ formatVersion(getPackageDetection(pkg.id).version) }}
-                      </template>
-                    </span>
+                  <div class="card-main">
+                    <div class="title-row">
+                      <h4>{{ pkg.name }}</h4>
+                      <a
+                        v-if="pkg.officialUrl"
+                        class="official-link"
+                        :href="pkg.officialUrl"
+                        target="_blank"
+                        rel="noreferrer"
+                        @click.stop
+                      >
+                        官方
+                      </a>
+                    </div>
+                    <p>{{ pkg.description }}</p>
                   </div>
-                  <div v-if="pkg.dependencies?.length" class="meta-item">
-                    <span class="meta-label">依赖</span>
-                    <span>{{ pkg.dependencies.join(', ') }}</span>
+
+                  <div class="card-meta">
+                    <div class="meta-item">
+                      <span class="meta-label">支持</span>
+                      <span>{{ pkg.managerSupport }}</span>
+                    </div>
+
+                    <div v-if="pkg.versionSelectable" class="version-panel" @click.stop>
+                      <span class="meta-label">版本</span>
+                      <el-select
+                        :model-value="pkg.currentVersionId"
+                        size="small"
+                        class="version-select"
+                        @update:model-value="(value) => updatePackageVersion(pkg, value)"
+                      >
+                        <el-option
+                          v-for="version in pkg.versionOptions"
+                          :key="version.id"
+                          :label="version.label"
+                          :value="version.id"
+                        >
+                          <div class="version-option">
+                            <strong>{{ version.label }}</strong>
+                            <span>{{ version.summary }}</span>
+                          </div>
+                        </el-option>
+                      </el-select>
+                      <p class="version-summary">
+                        {{
+                          pkg.versionOptions.find((item) => item.id === pkg.currentVersionId)?.summary ||
+                          pkg.selectedVersionSummary
+                        }}
+                      </p>
+                    </div>
+
+                    <div v-if="pkg.detection.installed" class="meta-item success">
+                      <span class="meta-label success">状态</span>
+                      <span>
+                        已检测到
+                        <template v-if="formatVersion(pkg.detection.version)">
+                          · {{ formatVersion(pkg.detection.version) }}
+                        </template>
+                      </span>
+                    </div>
+
+                    <div v-if="pkg.dependencies?.length" class="meta-item">
+                      <span class="meta-label">依赖</span>
+                      <span>{{ pkg.dependencies.join(', ') }}</span>
+                    </div>
+
+                    <div v-if="pkg.tags?.length" class="meta-item">
+                      <span class="meta-label">标签</span>
+                      <span>{{ pkg.tags.join(' / ') }}</span>
+                    </div>
+
+                    <div v-if="pkg.size" class="meta-item">
+                      <span class="meta-label">体积</span>
+                      <span>{{ pkg.size }}</span>
+                    </div>
+
+                    <div v-if="pkg.note" class="meta-item warning">
+                      <span class="meta-label">提示</span>
+                      <span>{{ pkg.note }}</span>
+                    </div>
                   </div>
-                  <div v-if="pkg.size" class="meta-item">
-                    <span class="meta-label">体积</span>
-                    <span>{{ pkg.size }}</span>
-                  </div>
-                  <div v-if="pkg.note" class="meta-item warning">
-                    <span class="meta-label">提示</span>
-                    <span>{{ pkg.note }}</span>
-                  </div>
-                </div>
-              </article>
+                </article>
+              </div>
             </div>
           </el-tab-pane>
         </el-tabs>
@@ -541,7 +827,7 @@ function formatVersion(version) {
     <el-dialog
       v-model="showPreview"
       :title="previewTitle"
-      width="860px"
+      width="900px"
     >
       <el-alert
         title="使用说明"
@@ -551,10 +837,10 @@ function formatVersion(version) {
       >
         <p>
           <template v-if="scriptMode === 'uninstall'">
-            下载后双击运行脚本即可开始卸载，执行前建议先关闭相关软件并保留日志文件。
+            下载后双击运行脚本即可开始卸载。若某些软件本来就不适合自动回滚，脚本会在日志和结尾说明里明确提示。
           </template>
           <template v-else>
-            下载后双击运行脚本，根据提示完成安装。安装结束后建议重启终端。
+            下载后双击运行脚本，根据提示完成安装。带版本选择的软件会按你当前在页面里选定的版本生成。
           </template>
           <template v-if="scriptMode !== 'uninstall' && hasDetectionData && skippedInstalledCount > 0">
             本次已自动跳过 {{ skippedInstalledCount }} 个已安装项目。
@@ -565,7 +851,7 @@ function formatVersion(version) {
       <el-input
         v-model="generatedScript"
         type="textarea"
-        :rows="18"
+        :rows="20"
         readonly
         class="script-preview"
       />
@@ -795,15 +1081,52 @@ function formatVersion(version) {
   line-height: 1.8;
 }
 
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  border: 0;
+.search-shell {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 24px;
+  background: rgba(18, 40, 37, 0.04);
+  border: 1px solid rgba(18, 40, 37, 0.05);
+}
+
+.search-input {
+  width: 100%;
+}
+
+.quick-searches {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.quick-chip {
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(18, 40, 37, 0.06);
+  color: #536663;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.quick-chip:hover {
+  border-color: rgba(47, 117, 105, 0.24);
+  color: #1c5e52;
+}
+
+.filter-row {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-select {
+  width: 190px;
 }
 
 .library-tags {
@@ -813,7 +1136,7 @@ function formatVersion(version) {
 }
 
 .env-tabs {
-  margin-top: 8px;
+  margin-top: 16px;
 }
 
 .tab-label {
@@ -828,6 +1151,10 @@ function formatVersion(version) {
   font-size: 18px;
 }
 
+.category-group + .category-group {
+  margin-top: 22px;
+}
+
 .env-description {
   margin-bottom: 18px;
   display: flex;
@@ -840,15 +1167,30 @@ function formatVersion(version) {
   border: 1px solid rgba(18, 40, 37, 0.05);
 }
 
+.group-title-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.group-title-line strong {
+  color: #152b27;
+  font-size: 18px;
+}
+
+.group-icon {
+  font-size: 20px;
+}
+
 .env-description p {
-  margin: 0;
+  margin: 8px 0 0;
   color: #617572;
   line-height: 1.75;
 }
 
 .packages-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
 }
 
@@ -912,6 +1254,13 @@ function formatVersion(version) {
   justify-content: flex-end;
 }
 
+.title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
 .card-main h4 {
   margin: 0;
   color: #152b27;
@@ -923,6 +1272,14 @@ function formatVersion(version) {
   color: #647673;
   font-size: 14px;
   line-height: 1.72;
+}
+
+.official-link {
+  display: inline-flex;
+  color: #1f6d5f;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 12px;
 }
 
 .card-meta {
@@ -961,10 +1318,65 @@ function formatVersion(version) {
   color: #185549;
   font-size: 11px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .meta-label.success {
   background: rgba(47, 117, 105, 0.16);
+}
+
+.version-panel {
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(18, 40, 37, 0.03);
+  border: 1px solid rgba(18, 40, 37, 0.05);
+}
+
+.version-select {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.version-summary {
+  margin: 8px 0 0;
+  color: #6a7c78;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.version-option {
+  display: grid;
+  gap: 2px;
+}
+
+.version-option strong {
+  color: #152b27;
+  font-size: 13px;
+}
+
+.version-option span {
+  color: #6b7d79;
+  font-size: 12px;
+}
+
+.empty-state {
+  padding: 30px 20px;
+  border-radius: 24px;
+  background: rgba(18, 40, 37, 0.04);
+  border: 1px dashed rgba(18, 40, 37, 0.12);
+  text-align: center;
+}
+
+.empty-state h4 {
+  margin: 0;
+  color: #152b27;
+  font-size: 22px;
+}
+
+.empty-state p {
+  margin: 10px 0 0;
+  color: #647673;
+  line-height: 1.8;
 }
 
 .preview-alert {
@@ -980,6 +1392,17 @@ function formatVersion(version) {
   font-family: 'Cascadia Code', 'Consolas', monospace;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 :deep(.el-checkbox__input.is-checked .el-checkbox__inner),
@@ -1022,11 +1445,22 @@ function formatVersion(version) {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 820px) {
   .module-body {
     padding: 18px;
   }
 
+  .filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-select {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
   .preset-grid,
   .packages-grid {
     grid-template-columns: 1fr;
@@ -1046,7 +1480,8 @@ function formatVersion(version) {
     align-items: flex-start;
   }
 
-  .module-header {
+  .module-header,
+  .title-row {
     flex-direction: column;
   }
 }

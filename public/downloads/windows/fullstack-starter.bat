@@ -9,6 +9,7 @@ title 安的爽 - 开发环境一键安装
 set "LOGFILE=%~dp0andeshuang-install-%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%-%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%.log"
 set "LOGFILE=%LOGFILE: =0%"
 set /a FAILED_COUNT=0
+set "PIP_MIRROR_READY=0"
 
 >nul 2>&1 "%SYSTEMROOT%\system32\cacls.exe" "%SYSTEMROOT%\system32\config\system"
 if '%errorlevel%' NEQ '0' (
@@ -28,8 +29,25 @@ exit /B
 if exist "%temp%\getadmin.vbs" del "%temp%\getadmin.vbs"
 pushd "%CD%"
 CD /D "%~dp0"
-cls
 
+echo [检查] Chocolatey 是否已安装...
+where choco >nul 2>nul
+if %errorlevel% neq 0 (
+  echo [安装] 正在安装 Chocolatey...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
+if %errorlevel% neq 0 (
+  echo [失败] Chocolatey 安装失败，请检查网络、代理或管理员权限。
+  pause
+  exit /b 1
+)
+call refreshenv >nul 2>nul
+echo [成功] Chocolatey 安装完成。
+) else (
+  echo [跳过] 已检测到 Chocolatey。
+)
+echo.
+
+cls
 echo ===================================== > "%LOGFILE%"
 echo 安的爽 安装日志 >> "%LOGFILE%"
 echo 脚本来源: 安的爽 Windows 预置包 >> "%LOGFILE%"
@@ -40,89 +58,83 @@ echo      安的爽 - 开发环境一键安装
 echo =====================================
 echo 日志文件：%LOGFILE%
 echo.
-
-echo [检查] Chocolatey 是否已安装...
-echo [检查] Chocolatey 是否已安装... >> "%LOGFILE%"
-where choco >nul 2>nul
-if %errorlevel% neq 0 (
-  echo [安装] 正在安装 Chocolatey...
-echo [安装] 正在安装 Chocolatey... >> "%LOGFILE%"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" >> "%LOGFILE%" 2>&1
-if %errorlevel% neq 0 (
-  echo [失败] Chocolatey 安装失败，请检查网络、代理或管理员权限。
-  echo [失败] Chocolatey 安装失败。>> "%LOGFILE%"
-  pause
-  exit /b 1
-)
-call refreshenv >nul 2>nul
-echo [成功] Chocolatey 安装完成。
-echo [成功] Chocolatey 安装完成。 >> "%LOGFILE%"
-) else (
-  echo [跳过] 已检测到 Chocolatey。
-  echo [跳过] 已检测到 Chocolatey。 >> "%LOGFILE%"
-)
+echo [开始] 执行 安装流程...
+echo [开始] 执行 安装流程... >> "%LOGFILE%"
 echo.
-echo [开始] 安装 Chocolatey 软件包...
-echo [开始] 安装 Chocolatey 软件包... >> "%LOGFILE%"
-echo.
-echo [安装] Node.js 20 LTS
-echo [安装] Node.js 20 LTS >> "%LOGFILE%"
-choco install nodejs-lts -y --no-progress >> "%LOGFILE%" 2>&1
-if %errorlevel% equ 0 (
-  echo [成功] Node.js 20 LTS
-  echo [成功] Node.js 20 LTS >> "%LOGFILE%"
-) else (
-  echo [失败] Node.js 20 LTS
-  echo [失败] Node.js 20 LTS >> "%LOGFILE%"
+echo [安装] Node.js · 22 LTS
+echo [安装] Node.js · 22 LTS >> "%LOGFILE%"
+set "PACKAGE_FAILED="
+call choco install nodejs-lts -y --no-progress >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
+if defined PACKAGE_FAILED (
+  echo [失败] Node.js · 22 LTS
+  echo [失败] Node.js · 22 LTS >> "%LOGFILE%"
   set /a FAILED_COUNT+=1
+) else (
+  echo [成功] Node.js · 22 LTS
+  echo [成功] Node.js · 22 LTS >> "%LOGFILE%"
 )
 echo.
 echo [安装] Git
 echo [安装] Git >> "%LOGFILE%"
-choco install git -y --no-progress >> "%LOGFILE%" 2>&1
-if %errorlevel% equ 0 (
-  echo [成功] Git
-  echo [成功] Git >> "%LOGFILE%"
-) else (
+set "PACKAGE_FAILED="
+call choco install git -y --no-progress >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
+if defined PACKAGE_FAILED (
   echo [失败] Git
   echo [失败] Git >> "%LOGFILE%"
   set /a FAILED_COUNT+=1
+) else (
+  echo [成功] Git
+  echo [成功] Git >> "%LOGFILE%"
 )
 echo.
 echo [安装] Visual Studio Code
 echo [安装] Visual Studio Code >> "%LOGFILE%"
-choco install vscode -y --no-progress >> "%LOGFILE%" 2>&1
-if %errorlevel% equ 0 (
-  echo [成功] Visual Studio Code
-  echo [成功] Visual Studio Code >> "%LOGFILE%"
-) else (
+set "PACKAGE_FAILED="
+call choco install vscode -y --no-progress >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
+if defined PACKAGE_FAILED (
   echo [失败] Visual Studio Code
   echo [失败] Visual Studio Code >> "%LOGFILE%"
   set /a FAILED_COUNT+=1
+) else (
+  echo [成功] Visual Studio Code
+  echo [成功] Visual Studio Code >> "%LOGFILE%"
 )
 echo.
-echo [安装] Python 3.11
-echo [安装] Python 3.11 >> "%LOGFILE%"
-choco install python311 -y --no-progress >> "%LOGFILE%" 2>&1
-if %errorlevel% equ 0 (
-  echo [成功] Python 3.11
-  echo [成功] Python 3.11 >> "%LOGFILE%"
-) else (
-  echo [失败] Python 3.11
-  echo [失败] Python 3.11 >> "%LOGFILE%"
+echo [安装] Python · 3.13 推荐
+echo [安装] Python · 3.13 推荐 >> "%LOGFILE%"
+echo [提示] Python 版本通过 uv 管理，适合需要多版本切换的开发环境。
+echo [提示] Python 版本通过 uv 管理，适合需要多版本切换的开发环境。 >> "%LOGFILE%"
+set "PACKAGE_FAILED="
+call powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex" >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
+call "%USERPROFILE%\.local\bin\uv.exe" python install 3.13 --default >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
+if defined PACKAGE_FAILED (
+  echo [失败] Python · 3.13 推荐
+  echo [失败] Python · 3.13 推荐 >> "%LOGFILE%"
   set /a FAILED_COUNT+=1
+) else (
+  echo [成功] Python · 3.13 推荐
+  echo [成功] Python · 3.13 推荐 >> "%LOGFILE%"
 )
 echo.
-echo [安装] pnpm
-echo [安装] pnpm >> "%LOGFILE%"
-choco install pnpm -y --no-progress >> "%LOGFILE%" 2>&1
-if %errorlevel% equ 0 (
-  echo [成功] pnpm
-  echo [成功] pnpm >> "%LOGFILE%"
-) else (
-  echo [失败] pnpm
-  echo [失败] pnpm >> "%LOGFILE%"
+echo [安装] PostgreSQL
+echo [安装] PostgreSQL >> "%LOGFILE%"
+echo [提示] 安装后通常要确认端口、超级用户和服务状态。
+echo [提示] 安装后通常要确认端口、超级用户和服务状态。 >> "%LOGFILE%"
+set "PACKAGE_FAILED="
+call choco install postgresql -y --no-progress >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
+if defined PACKAGE_FAILED (
+  echo [失败] PostgreSQL
+  echo [失败] PostgreSQL >> "%LOGFILE%"
   set /a FAILED_COUNT+=1
+) else (
+  echo [成功] PostgreSQL
+  echo [成功] PostgreSQL >> "%LOGFILE%"
 )
 echo.
 
@@ -132,7 +144,7 @@ if %FAILED_COUNT% gtr 0 (
   echo 请查看日志文件并根据提示重试。
   echo 日志路径：%LOGFILE%
   echo =====================================
-  echo [建议] 失败排查：管理员权限、网络/代理、已有同名软件占用、包源不可用。 >> "%LOGFILE%"
+  echo [建议] 失败排查：管理员权限、网络/代理、包源不可用、已有同名软件占用、需要手动确认的安装器。 >> "%LOGFILE%"
 ) else (
   echo =====================================
   echo 安装流程已完成。

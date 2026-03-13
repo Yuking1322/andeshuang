@@ -1,56 +1,199 @@
-import { getAllPackages } from '../data/environments.js'
+import { resolvePackageConfig } from '../data/environments.js'
 
 export function generateScript(packageIds, options = {}) {
   const normalizedOptions =
     typeof options === 'boolean'
-      ? { useChocolatey: options, mode: 'install', sourceLabel: '动态脚本' }
+      ? { useChocolatey: options, mode: 'install', sourceLabel: '动态脚本', selectedVersions: {} }
       : {
           useChocolatey: options.useChocolatey ?? true,
           mode: options.mode ?? 'install',
-          sourceLabel: options.sourceLabel ?? '动态脚本'
+          sourceLabel: options.sourceLabel ?? '动态脚本',
+          selectedVersions: options.selectedVersions ?? {}
         }
 
-  const allPackages = getAllPackages()
-  const selectedPackages = packageIds
-    .map((id) => allPackages.find((pkg) => pkg.id === id))
+  const managerKey = normalizedOptions.useChocolatey ? 'chocolatey' : 'scoop'
+  const resolvedPackages = packageIds
+    .map((id) => resolvePackageConfig(id, normalizedOptions.selectedVersions))
     .filter(Boolean)
 
-  if (normalizedOptions.mode === 'uninstall') {
-    return normalizedOptions.useChocolatey
-      ? generateChocolateyBat(selectedPackages, 'uninstall', normalizedOptions.sourceLabel)
-      : generateScoopBat(selectedPackages, 'uninstall', normalizedOptions.sourceLabel)
-  }
-
-  return normalizedOptions.useChocolatey
-    ? generateChocolateyBat(selectedPackages, 'install', normalizedOptions.sourceLabel)
-    : generateScoopBat(selectedPackages, 'install', normalizedOptions.sourceLabel)
+  return generateWindowsBat(resolvedPackages, {
+    managerKey,
+    mode: normalizedOptions.mode,
+    sourceLabel: normalizedOptions.sourceLabel
+  })
 }
 
-function generateChocolateyBat(packages, mode, sourceLabel) {
-  const chocoPackages = packages.filter((pkg) => pkg.choco)
-  const pipPackages = packages.filter((pkg) => pkg.installMethod === 'pip')
-  const manualPackages = packages.filter((pkg) => pkg.installMethod === 'manual')
-  const isInstall = mode === 'install'
+function generateWindowsBat(packages, options) {
+  const isInstall = options.mode === 'install'
   const operationText = isInstall ? '安装' : '卸载'
   const scriptTitle = isInstall ? '开发环境一键安装' : '开发环境后悔药'
-  const packageAction = isInstall ? 'install' : 'uninstall'
+  const managerLabel = options.managerKey === 'chocolatey' ? 'Chocolatey' : 'Scoop'
   const logPrefix = isInstall ? 'install' : 'uninstall'
-  const pipCommand = isInstall ? 'pip install' : 'pip uninstall -y'
-  const scriptSource = `安的爽 ${sourceLabel}`
+  const scriptSource = `安的爽 ${options.sourceLabel}`
+  const executablePackages = []
+  const manualPackages = []
+
+  packages.forEach((pkg) => {
+    const installer = pkg.managerActions?.[options.managerKey]
+    const commands = isInstall ? installer?.installCommands || [] : installer?.uninstallCommands || []
+    const displayName = pkg.selectedVersionLabel ? `${pkg.name} · ${pkg.selectedVersionLabel}` : pkg.name
+    const note = installer?.note || pkg.note || ''
+    const url = installer?.url || pkg.officialUrl || ''
+
+    if (commands.length > 0) {
+      executablePackages.push({
+        id: pkg.id,
+        displayName,
+        commands,
+        note
+      })
+      return
+    }
+
+    manualPackages.push({
+      displayName,
+      note: note || `当前模式下没有可直接执行的 ${operationText}命令。`,
+      url
+    })
+  })
+
+  const needsManagerBootstrap = executablePackages.some((pkg) =>
+    pkg.commands.some((command) => {
+      if (options.managerKey === 'chocolatey') {
+        return /\bchoco\b/i.test(command)
+      }
+
+      return /\bscoop\b/i.test(command)
+    })
+  )
 
   let bat = `@echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul
 title 安的爽 - ${scriptTitle}
 :: 脚本来源: ${scriptSource}
-:: 包管理器: Chocolatey
+:: 包管理器: ${managerLabel}
 :: 模式: ${operationText}
 
 set "LOGFILE=%~dp0andeshuang-${logPrefix}-%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%-%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%.log"
 set "LOGFILE=%LOGFILE: =0%"
 set /a FAILED_COUNT=0
+set "PIP_MIRROR_READY=0"
 
->nul 2>&1 "%SYSTEMROOT%\\system32\\cacls.exe" "%SYSTEMROOT%\\system32\\config\\system"
+${needsManagerBootstrap ? buildManagerBootstrap(options.managerKey, isInstall) : 'pushd "%CD%"\nCD /D "%~dp0"\necho.\n'}
+cls
+echo ===================================== > "%LOGFILE%"
+echo 安的爽 ${operationText}日志 >> "%LOGFILE%"
+echo 脚本来源: ${scriptSource} >> "%LOGFILE%"
+echo ===================================== >> "%LOGFILE%"
+echo.
+echo =====================================
+echo      安的爽 - ${scriptTitle}
+echo =====================================
+echo 日志文件：%LOGFILE%
+echo.
+`
+
+  if (executablePackages.length > 0) {
+    bat += `echo [开始] 执行 ${operationText}流程...
+echo [开始] 执行 ${operationText}流程... >> "%LOGFILE%"
+echo.
+`
+
+    executablePackages.forEach((pkg) => {
+      bat += `echo [${operationText}] ${pkg.displayName}
+echo [${operationText}] ${pkg.displayName} >> "%LOGFILE%"
+`
+
+      if (pkg.note) {
+        bat += `echo [提示] ${pkg.note}
+echo [提示] ${pkg.note} >> "%LOGFILE%"
+`
+      }
+
+      bat += `set "PACKAGE_FAILED="
+`
+
+      if (isInstall && pkg.commands.some((line) => /pip install/i.test(line))) {
+        bat += `if "!PIP_MIRROR_READY!"=="0" (
+  echo [配置] 正在设置 pip 镜像...
+  echo [配置] 正在设置 pip 镜像... >> "%LOGFILE%"
+  call powershell -NoProfile -Command "$py = if (Test-Path \\"$env:USERPROFILE\\\\.local\\\\bin\\\\python.exe\\") { \\"$env:USERPROFILE\\\\.local\\\\bin\\\\python.exe\\" } else { 'python' }; & $py -m pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple" >> "%LOGFILE%" 2>&1
+  if !errorlevel! neq 0 (
+    echo [提示] pip 镜像设置失败，将继续使用默认配置。
+    echo [提示] pip 镜像设置失败。 >> "%LOGFILE%"
+  )
+  set "PIP_MIRROR_READY=1"
+)
+`
+      }
+
+      pkg.commands.forEach((command) => {
+        bat += `call ${command} >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
+`
+      })
+
+      bat += `if defined PACKAGE_FAILED (
+  echo [失败] ${pkg.displayName}
+  echo [失败] ${pkg.displayName} >> "%LOGFILE%"
+  set /a FAILED_COUNT+=1
+) else (
+  echo [成功] ${pkg.displayName}
+  echo [成功] ${pkg.displayName} >> "%LOGFILE%"
+)
+echo.
+`
+    })
+  }
+
+  if (manualPackages.length > 0) {
+    bat += `echo [提示] 以下软件建议手动处理：
+echo [提示] 以下软件建议手动处理： >> "%LOGFILE%"
+echo.
+`
+
+    manualPackages.forEach((pkg) => {
+      bat += `echo ${pkg.displayName}
+echo ${pkg.displayName} >> "%LOGFILE%"
+echo 说明: ${pkg.note}
+echo 说明: ${pkg.note} >> "%LOGFILE%"
+`
+
+      if (pkg.url) {
+        bat += `echo 官方入口: ${pkg.url}
+echo 官方入口: ${pkg.url} >> "%LOGFILE%"
+`
+      }
+
+      bat += `echo.
+`
+    })
+  }
+
+  bat += `
+if %FAILED_COUNT% gtr 0 (
+  echo =====================================
+  echo ${operationText}完成，但有 %FAILED_COUNT% 项失败。
+  echo 请查看日志文件并根据提示重试。
+  echo 日志路径：%LOGFILE%
+  echo =====================================
+  echo [建议] 失败排查：管理员权限、网络/代理、包源不可用、已有同名软件占用、需要手动确认的安装器。 >> "%LOGFILE%"
+) else (
+  echo =====================================
+  echo ${operationText}流程已完成。
+  echo 日志路径：%LOGFILE%
+  echo =====================================
+)
+pause >nul
+`
+
+  return bat
+}
+
+function buildManagerBootstrap(managerKey, isInstall) {
+  if (managerKey === 'chocolatey') {
+    return `>nul 2>&1 "%SYSTEMROOT%\\system32\\cacls.exe" "%SYSTEMROOT%\\system32\\config\\system"
 if '%errorlevel%' NEQ '0' (
   echo 正在请求管理员权限...
   goto UACPrompt
@@ -68,303 +211,55 @@ exit /B
 if exist "%temp%\\getadmin.vbs" del "%temp%\\getadmin.vbs"
 pushd "%CD%"
 CD /D "%~dp0"
-cls
-
-echo ===================================== > "%LOGFILE%"
-echo 安的爽 ${operationText}日志 >> "%LOGFILE%"
-echo 脚本来源: ${scriptSource} >> "%LOGFILE%"
-echo ===================================== >> "%LOGFILE%"
-echo.
-echo =====================================
-echo      安的爽 - ${scriptTitle}
-echo =====================================
-echo 日志文件：%LOGFILE%
-echo.
 
 echo [检查] Chocolatey 是否已安装...
-echo [检查] Chocolatey 是否已安装... >> "%LOGFILE%"
 where choco >nul 2>nul
 if %errorlevel% neq 0 (
   ${
     isInstall
       ? `echo [安装] 正在安装 Chocolatey...
-echo [安装] 正在安装 Chocolatey... >> "%LOGFILE%"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" >> "%LOGFILE%" 2>&1
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
 if %errorlevel% neq 0 (
   echo [失败] Chocolatey 安装失败，请检查网络、代理或管理员权限。
-  echo [失败] Chocolatey 安装失败。>> "%LOGFILE%"
   pause
   exit /b 1
 )
 call refreshenv >nul 2>nul
-echo [成功] Chocolatey 安装完成。
-echo [成功] Chocolatey 安装完成。 >> "%LOGFILE%"`
-      : `echo [失败] 未检测到 Chocolatey，无法继续卸载 Chocolatey 软件包。
-echo [失败] 未检测到 Chocolatey。 >> "%LOGFILE%"
+echo [成功] Chocolatey 安装完成。`
+      : `echo [失败] 未检测到 Chocolatey，无法继续卸载以 Chocolatey 为主的软件。
 pause
 exit /b 1`
   }
 ) else (
   echo [跳过] 已检测到 Chocolatey。
-  echo [跳过] 已检测到 Chocolatey。 >> "%LOGFILE%"
 )
 echo.
 `
-
-  if (chocoPackages.length > 0) {
-    bat += `echo [开始] ${operationText} Chocolatey 软件包...
-echo [开始] ${operationText} Chocolatey 软件包... >> "%LOGFILE%"
-echo.
-`
-
-    chocoPackages.forEach((pkg) => {
-      bat += `echo [${operationText}] ${pkg.name}
-echo [${operationText}] ${pkg.name} >> "%LOGFILE%"
-choco ${packageAction} ${pkg.choco} -y --no-progress >> "%LOGFILE%" 2>&1
-if %errorlevel% equ 0 (
-  echo [成功] ${pkg.name}
-  echo [成功] ${pkg.name} >> "%LOGFILE%"
-) else (
-  echo [失败] ${pkg.name}
-  echo [失败] ${pkg.name} >> "%LOGFILE%"
-  set /a FAILED_COUNT+=1
-)
-echo.
-`
-    })
   }
 
-  if (pipPackages.length > 0) {
-    bat += `echo [开始] ${operationText} Python 扩展包...
-echo [开始] ${operationText} Python 扩展包... >> "%LOGFILE%"
-${isInstall ? 'pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple >> "%LOGFILE%" 2>&1' : 'echo [提示] 将使用 pip 执行卸载。 >> "%LOGFILE%"'}
-echo.
-`
-
-    pipPackages.forEach((pkg) => {
-      const pipArgs = isInstall
-        ? pkg.command.replace(/^pip install\s+/i, '')
-        : pkg.command
-            .replace(/^pip install\s+/i, '')
-            .split(/\s+/)
-            .filter((token) => token && !token.startsWith('-'))
-            .join(' ')
-
-      bat += `echo [${operationText}] ${pkg.name}
-echo [${operationText}] ${pkg.name} >> "%LOGFILE%"
-${pipCommand} ${pipArgs} >> "%LOGFILE%" 2>&1
-if %errorlevel% equ 0 (
-  echo [成功] ${pkg.name}
-  echo [成功] ${pkg.name} >> "%LOGFILE%"
-) else (
-  echo [失败] ${pkg.name}
-  echo [失败] ${pkg.name} >> "%LOGFILE%"
-  set /a FAILED_COUNT+=1
-)
-echo.
-`
-    })
-  }
-
-  if (manualPackages.length > 0) {
-    bat += `echo [提示] 以下软件需要手动${operationText}：
-echo [提示] 以下软件需要手动${operationText}： >> "%LOGFILE%"
-echo.
-`
-
-    manualPackages.forEach((pkg) => {
-      bat += `echo ${pkg.name}
-echo ${pkg.name} >> "%LOGFILE%"
-echo 说明: ${pkg.description}
-echo 说明: ${pkg.description} >> "%LOGFILE%"
-echo 下载地址: ${pkg.url}
-echo 下载地址: ${pkg.url} >> "%LOGFILE%"
-${pkg.note ? `echo 注意: ${pkg.note}\necho 注意: ${pkg.note} >> "%LOGFILE%"` : ''}
-echo.
-`
-    })
-  }
-
-  bat += `
-if %FAILED_COUNT% gtr 0 (
-  echo =====================================
-  echo ${operationText}完成，但有 %FAILED_COUNT% 项失败。
-  echo 请查看日志文件并根据提示重试。
-  echo 日志路径：%LOGFILE%
-  echo =====================================
-  echo [建议] 失败排查：管理员权限、网络/代理、已有同名软件占用、包源不可用。 >> "%LOGFILE%"
-) else (
-  echo =====================================
-  echo ${operationText}流程已完成。
-  echo 日志路径：%LOGFILE%
-  echo =====================================
-)
-pause >nul
-`
-
-  return bat
-}
-
-function generateScoopBat(packages, mode, sourceLabel) {
-  const scoopPackages = packages.filter((pkg) => pkg.scoop)
-  const pipPackages = packages.filter((pkg) => pkg.installMethod === 'pip')
-  const manualPackages = packages.filter((pkg) => pkg.installMethod === 'manual')
-  const isInstall = mode === 'install'
-  const operationText = isInstall ? '安装' : '卸载'
-  const scriptTitle = isInstall ? '开发环境一键安装' : '开发环境后悔药'
-  const packageAction = isInstall ? 'install' : 'uninstall'
-  const logPrefix = isInstall ? 'install' : 'uninstall'
-  const pipCommand = isInstall ? 'pip install' : 'pip uninstall -y'
-  const scriptSource = `安的爽 ${sourceLabel}`
-
-  let bat = `@echo off
-setlocal enabledelayedexpansion
-chcp 65001 >nul
-title 安的爽 - ${scriptTitle}
-:: 脚本来源: ${scriptSource}
-:: 包管理器: Scoop
-:: 模式: ${operationText}
-
-set "LOGFILE=%~dp0andeshuang-${logPrefix}-%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%-%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%.log"
-set "LOGFILE=%LOGFILE: =0%"
-set /a FAILED_COUNT=0
-
-cls
-echo ===================================== > "%LOGFILE%"
-echo 安的爽 ${operationText}日志 >> "%LOGFILE%"
-echo 脚本来源: ${scriptSource} >> "%LOGFILE%"
-echo ===================================== >> "%LOGFILE%"
-echo.
-echo =====================================
-echo      安的爽 - ${scriptTitle}
-echo =====================================
-echo 日志文件：%LOGFILE%
-echo.
+  return `pushd "%CD%"
+CD /D "%~dp0"
 
 echo [检查] Scoop 是否已安装...
-echo [检查] Scoop 是否已安装... >> "%LOGFILE%"
 where scoop >nul 2>nul
 if %errorlevel% neq 0 (
   ${
     isInstall
       ? `echo [安装] 正在安装 Scoop...
-echo [安装] 正在安装 Scoop... >> "%LOGFILE%"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force; irm get.scoop.sh | iex" >> "%LOGFILE%" 2>&1
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force; irm get.scoop.sh | iex"
 if %errorlevel% neq 0 (
   echo [失败] Scoop 安装失败，请检查网络、代理或 PowerShell 执行策略。
-  echo [失败] Scoop 安装失败。 >> "%LOGFILE%"
   pause
   exit /b 1
 )
-echo [成功] Scoop 安装完成。
-echo [成功] Scoop 安装完成。 >> "%LOGFILE%"`
-      : `echo [失败] 未检测到 Scoop，无法继续卸载 Scoop 软件包。
-echo [失败] 未检测到 Scoop。 >> "%LOGFILE%"
+echo [成功] Scoop 安装完成。`
+      : `echo [失败] 未检测到 Scoop，无法继续卸载以 Scoop 为主的软件。
 pause
 exit /b 1`
   }
 ) else (
   echo [跳过] 已检测到 Scoop。
-  echo [跳过] 已检测到 Scoop。 >> "%LOGFILE%"
-)
-echo.
-
-echo [配置] 检查 extras bucket...
-echo [配置] 检查 extras bucket... >> "%LOGFILE%"
-scoop bucket add extras >> "%LOGFILE%" 2>&1
-echo.
-`
-
-  if (scoopPackages.length > 0) {
-    bat += `echo [开始] ${operationText} Scoop 软件包...
-echo [开始] ${operationText} Scoop 软件包... >> "%LOGFILE%"
-echo.
-`
-
-    scoopPackages.forEach((pkg) => {
-      bat += `echo [${operationText}] ${pkg.name}
-echo [${operationText}] ${pkg.name} >> "%LOGFILE%"
-scoop ${packageAction} ${pkg.scoop} >> "%LOGFILE%" 2>&1
-if %errorlevel% equ 0 (
-  echo [成功] ${pkg.name}
-  echo [成功] ${pkg.name} >> "%LOGFILE%"
-) else (
-  echo [失败] ${pkg.name}
-  echo [失败] ${pkg.name} >> "%LOGFILE%"
-  set /a FAILED_COUNT+=1
 )
 echo.
 `
-    })
-  }
-
-  if (pipPackages.length > 0) {
-    bat += `echo [开始] ${operationText} Python 扩展包...
-echo [开始] ${operationText} Python 扩展包... >> "%LOGFILE%"
-${isInstall ? 'pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple >> "%LOGFILE%" 2>&1' : 'echo [提示] 将使用 pip 执行卸载。 >> "%LOGFILE%"'}
-echo.
-`
-
-    pipPackages.forEach((pkg) => {
-      const pipArgs = isInstall
-        ? pkg.command.replace(/^pip install\s+/i, '')
-        : pkg.command
-            .replace(/^pip install\s+/i, '')
-            .split(/\s+/)
-            .filter((token) => token && !token.startsWith('-'))
-            .join(' ')
-
-      bat += `echo [${operationText}] ${pkg.name}
-echo [${operationText}] ${pkg.name} >> "%LOGFILE%"
-${pipCommand} ${pipArgs} >> "%LOGFILE%" 2>&1
-if %errorlevel% equ 0 (
-  echo [成功] ${pkg.name}
-  echo [成功] ${pkg.name} >> "%LOGFILE%"
-) else (
-  echo [失败] ${pkg.name}
-  echo [失败] ${pkg.name} >> "%LOGFILE%"
-  set /a FAILED_COUNT+=1
-)
-echo.
-`
-    })
-  }
-
-  if (manualPackages.length > 0) {
-    bat += `echo [提示] 以下软件需要手动${operationText}：
-echo [提示] 以下软件需要手动${operationText}： >> "%LOGFILE%"
-echo.
-`
-
-    manualPackages.forEach((pkg) => {
-      bat += `echo ${pkg.name}
-echo ${pkg.name} >> "%LOGFILE%"
-echo 说明: ${pkg.description}
-echo 说明: ${pkg.description} >> "%LOGFILE%"
-echo 下载地址: ${pkg.url}
-echo 下载地址: ${pkg.url} >> "%LOGFILE%"
-${pkg.note ? `echo 注意: ${pkg.note}\necho 注意: ${pkg.note} >> "%LOGFILE%"` : ''}
-echo.
-`
-    })
-  }
-
-  bat += `
-if %FAILED_COUNT% gtr 0 (
-  echo =====================================
-  echo ${operationText}完成，但有 %FAILED_COUNT% 项失败。
-  echo 请查看日志文件并根据提示重试。
-  echo 日志路径：%LOGFILE%
-  echo =====================================
-  echo [建议] 失败排查：网络/代理、PowerShell 权限、已有同名软件占用、包源不可用。 >> "%LOGFILE%"
-) else (
-  echo =====================================
-  echo ${operationText}流程已完成。
-  echo 日志路径：%LOGFILE%
-  echo =====================================
-)
-pause >nul
-`
-
-  return bat
 }
