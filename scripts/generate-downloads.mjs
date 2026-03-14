@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises'
+import { Buffer } from 'node:buffer'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { windowsPresetDownloads } from '../src/data/downloadPresets.js'
@@ -23,7 +24,12 @@ for (const preset of windowsPresetDownloads) {
           sourceLabel: 'Windows 预置包'
         })
 
-  await writeFile(filePath, content, 'utf8')
+  // 添加 UTF-8 BOM，确保 Windows CMD 正确解析中文
+  const bom = Buffer.from([0xef, 0xbb, 0xbf])
+  const body = Buffer.from(content, 'utf8')
+  const combined = Buffer.concat([bom, body])
+
+  await writeFile(filePath, combined)
 }
 
 console.log(`Generated ${windowsPresetDownloads.length} Windows preset downloads in ${outputDir}`)

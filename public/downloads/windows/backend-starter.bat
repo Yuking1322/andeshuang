@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul
 title 安的爽 - 开发环境一键安装
