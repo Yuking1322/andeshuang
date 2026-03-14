@@ -202,15 +202,58 @@ set "LOGFILE=%~dp0andeshuang-install-%TIMESTAMP%.log"
 
 ## 上下文使用情况
 
-- 当前：65,525 / 200,000 tokens（约 67%）
-- 剩余：134,475 tokens
-- 建议：继续调试，上下文充足
+- 当前：63,460 / 200,000 tokens（约 68% 剩余）
+- 剩余：136,540 tokens
+- 状态：充足
 
 ---
 
-## 下一步计划
+## 最终状态（2026-03-15 凌晨）
 
-1. 查看 GitHub Actions 的具体错误信息
-2. 根据错误修复 workflow 或脚本
-3. 让用户清除缓存后重新测试
-4. 如果问题持续，考虑改用纯英文提示或 PowerShell 脚本
+### 已完成的修复
+
+1. ✅ **UTF-8 BOM 问题** — 前端动态生成和预置包文件都已添加 BOM
+2. ✅ **日志文件路径生成** — 改用 PowerShell Get-Date，不依赖系统日期格式
+3. ✅ **PowerShell 编码问题** — 移除 workflow 中的 UTF-8 特殊字符
+4. ✅ **externally-managed-environment** — 添加 --break-system-packages 支持 uv 环境
+
+### 自动化测试
+
+**已创建的 workflow**：
+1. `.github/workflows/test-windows-install.yml` — 单独测试 Python 工作台
+2. `.github/workflows/test-all-windows-install.yml` — 完整测试套件（4 个 job 并行）
+
+**测试覆盖**：
+- ✅ Python 工作台（uv + Python + pipx + JupyterLab）
+- ✅ 前端新机包（Node.js + Git + pnpm）
+- ✅ 后端基础包（OpenJDK + .NET + Go）
+- ✅ 数据科学入门（Python + pandas + numpy + matplotlib + scikit-learn）
+
+**测试状态**：
+- 第 1 次测试：日志路径错误 ❌
+- 第 2 次测试：externally-managed-environment 错误 ❌
+- 第 3 次测试：等待中（应该通过）
+- 完整测试套件：运行中（4 个 job 并行）
+
+### 待用户测试
+
+1. **清除浏览器缓存**，访问 https://andeshuang.me
+2. **重新下载脚本**，验证是否还有中文乱码或报错
+3. **检查 GitHub Actions** 测试结果
+
+### 已部署版本
+
+- 最新部署：https://ad16bef9.andeshuang.pages.dev
+- 主域名：https://andeshuang.me
+- 包含所有修复：BOM + 日志路径 + --break-system-packages
+
+---
+
+## 下一步计划（明天）
+
+1. 查看 GitHub Actions 测试结果
+2. 如果测试失败，分析日志并修复
+3. 如果测试通过，部署到生产环境
+4. 收集用户反馈，验证实际使用效果
+
+---
