@@ -124,11 +124,73 @@
 
 ## 待解决问题
 
-1. **GitHub Actions 报错** — 需要查看具体错误信息
+~~1. **GitHub Actions 报错** — 需要查看具体错误信息~~（已解决）
 2. **用户端测试** — 需要用户清除缓存后重新测试
 3. **中文乱码问题** — 考虑是否改用纯英文提示
 
 ---
+
+## GitHub Actions 测试失败分析（已解决）
+
+### 问题 1：日志文件路径生成错误
+
+**现象**：
+- 脚本显示 `[成功] uv`、`[成功] Python`，但实际没有安装
+- 所有命令报错：`The system cannot find the path specified.`
+- 日志文件路径：`C:\Users\RUNNER~1\AppData\Local\Temp\andeshuang-install-Sat03/4/-154555.log`
+
+**根本原因**：
+- 原代码使用 `%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%` 解析日期
+- 假设 `%DATE%` 格式为 `YYYY-MM-DD`
+- 但在 GitHub Actions 的 Windows 环境中，`%DATE%` 格式为 `Sat 03/14/2026`
+- 导致路径解析为 `Sat03/4/-154555.log`（包含非法字符 `/`）
+- 所有 `>> "%LOGFILE%"` 操作失败
+
+**修复方案**：
+```batch
+# 修复前
+set "LOGFILE=%~dp0andeshuang-install-%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%-%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%.log"
+set "LOGFILE=%LOGFILE: =0%"
+
+# 修复后
+for /f "delims=" %%i in ('powershell -NoProfile -Command "Get-Date -Format 'yyyyMMdd-HHmmss'"') do set "TIMESTAMP=%%i"
+set "LOGFILE=%~dp0andeshuang-install-%TIMESTAMP%.log"
+```
+
+**优势**：
+- PowerShell 的 `Get-Date -Format` 不依赖系统区域设置
+- 在任何 Windows 环境中都能生成统一格式的时间戳
+
+---
+
+### 问题 2：PowerShell 无法解析 UTF-8 特殊字符
+
+**现象**：
+- workflow 中的验证步骤报错：
+  ```
+  The string is missing the terminator: ".
+  At D:\a\_temp\...:8 char:25
+  +   echo "✗ uv not found"
+  ```
+
+**根本原因**：
+- workflow YAML 文件中使用了 UTF-8 特殊字符：`✓` `✗` `⚠`
+- GitHub Actions 将 YAML 内容写入临时 PowerShell 脚本时，编码处理有问题
+- PowerShell 解析时将 `✗` 识别为字符串终止符
+
+**修复方案**：
+- 批量替换所有特殊字符：
+  - `✓` → `[OK]`
+  - `✗` → `[FAIL]`
+  - `⚠` → `[WARN]`
+
+**提交**：
+- `0ec3d83` - "fix: 修复日志文件路径生成和 workflow 编码问题"
+- `38edff3` - "chore: 清理临时测试文件"
+
+---
+
+## 待解决问题
 
 ## 技术债务
 

@@ -1,0 +1,30 @@
+﻿2026-03-14T15:59:44.1652383Z ##[group]Run echo "=== Verifying pipx ==="
+2026-03-14T15:59:44.1652794Z [36;1mecho "=== Verifying pipx ==="[0m
+2026-03-14T15:59:44.1653010Z [36;1m[0m
+2026-03-14T15:59:44.1653165Z [36;1m# 刷新环境变量[0m
+2026-03-14T15:59:44.1653657Z [36;1m$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")[0m
+2026-03-14T15:59:44.1654193Z [36;1m[0m
+2026-03-14T15:59:44.1654424Z [36;1m$pipxCmd = Get-Command pipx -ErrorAction SilentlyContinue[0m
+2026-03-14T15:59:44.1654732Z [36;1mif ($pipxCmd) {[0m
+2026-03-14T15:59:44.1654962Z [36;1m  echo "[OK] pipx found at: $($pipxCmd.Source)"[0m
+2026-03-14T15:59:44.1655242Z [36;1m  pipx --version[0m
+2026-03-14T15:59:44.1655429Z [36;1m} else {[0m
+2026-03-14T15:59:44.1655606Z [36;1m  echo "[FAIL] pipx not found in PATH"[0m
+2026-03-14T15:59:44.1655841Z [36;1m[0m
+2026-03-14T15:59:44.1655980Z [36;1m  # 检查是否安装但未加入 PATH[0m
+2026-03-14T15:59:44.1656232Z [36;1m  $pipxPath = "$env:USERPROFILE\.local\bin\pipx.exe"[0m
+2026-03-14T15:59:44.1656561Z [36;1m  if (Test-Path $pipxPath) {[0m
+2026-03-14T15:59:44.1656861Z [36;1m    echo "[WARN] pipx installed but not in PATH: $pipxPath"[0m
+2026-03-14T15:59:44.1657140Z [36;1m  } else {[0m
+2026-03-14T15:59:44.1657343Z [36;1m    echo "[FAIL] pipx not installed"[0m
+2026-03-14T15:59:44.1657576Z [36;1m    exit 1[0m
+2026-03-14T15:59:44.1657727Z [36;1m  }[0m
+2026-03-14T15:59:44.1657880Z [36;1m}[0m
+2026-03-14T15:59:44.1729980Z shell: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.EXE -command ". '{0}'"
+2026-03-14T15:59:44.1730387Z ##[endgroup]
+2026-03-14T15:59:44.4849762Z === Verifying pipx ===
+2026-03-14T15:59:44.5017113Z [OK] pipx found at: C:\hostedtoolcache\windows\Python\3.12.10\x64\Scripts\pipx.exe
+2026-03-14T15:59:47.2321158Z Found a space in the pipx home path. We heavily discourage this, due to
+2026-03-14T15:59:47.2322381Z     multiple incompatibilities. Please check our docs for more information on
+2026-03-14T15:59:47.2323338Z     this, as well as some pointers on how to migrate to a different home path.
+2026-03-14T15:59:49.4861808Z 1.8.0

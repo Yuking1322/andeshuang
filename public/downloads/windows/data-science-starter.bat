@@ -122,7 +122,7 @@ if "!PIP_MIRROR_READY!"=="0" (
   )
   set "PIP_MIRROR_READY=1"
 )
-call powershell -NoProfile -Command "$py = if (Test-Path \"$env:USERPROFILE\\.local\\bin\\python.exe\") { \"$env:USERPROFILE\\.local\\bin\\python.exe\" } else { 'python' }; & $py -m pip install jupyterlab" >> "%LOGFILE%" 2>&1
+call powershell -NoProfile -Command "$py = if (Test-Path \"$env:USERPROFILE\\.local\\bin\\python.exe\") { \"$env:USERPROFILE\\.local\\bin\\python.exe\" } else { 'python' }; & $py -m pip install --break-system-packages jupyterlab" >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
 if defined PACKAGE_FAILED (
   echo [失败] JupyterLab

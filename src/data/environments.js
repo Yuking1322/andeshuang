@@ -356,7 +356,7 @@ export const environments = {
         managerActions: managerActions(
           action(
             [
-              pythonCommand('-m pip install --user pipx'),
+              pythonCommand('-m pip install --user --break-system-packages pipx'),
               pythonCommand('-m pipx ensurepath')
             ],
             [
@@ -368,7 +368,7 @@ export const environments = {
           ),
           action(
             [
-              pythonCommand('-m pip install --user pipx'),
+              pythonCommand('-m pip install --user --break-system-packages pipx'),
               pythonCommand('-m pipx ensurepath')
             ],
             [
@@ -391,11 +391,11 @@ export const environments = {
         dependencies: ['python'],
         managerActions: managerActions(
           action(
-            [pythonCommand('-m pip install jupyterlab')],
+            [pythonCommand('-m pip install --break-system-packages jupyterlab')],
             [pythonCommand('-m pip uninstall -y jupyterlab')]
           ),
           action(
-            [pythonCommand('-m pip install jupyterlab')],
+            [pythonCommand('-m pip install --break-system-packages jupyterlab')],
             [pythonCommand('-m pip uninstall -y jupyterlab')]
           )
         )

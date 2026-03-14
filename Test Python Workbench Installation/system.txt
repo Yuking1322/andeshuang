@@ -1,0 +1,8 @@
+2026-03-14T15:59:15.1360000Z Requested labels: windows-latest
+2026-03-14T15:59:15.1360000Z Job defined at: Yuking1322/andeshuang/.github/workflows/test-windows-install.yml@refs/heads/main
+2026-03-14T15:59:15.1360000Z Waiting for a runner to pick up this job...
+2026-03-14T15:59:15.1350000Z Evaluating test-python-workbench.if
+2026-03-14T15:59:15.1350000Z Evaluating: success()
+2026-03-14T15:59:15.1350000Z Result: true
+2026-03-14T15:59:15.1400000Z Job is waiting for a hosted runner to come online.
+2026-03-14T15:59:15.1400000Z Job is about to start running on the hosted runner: GitHub Actions 1000000027
