@@ -46,7 +46,6 @@ echo [成功] Chocolatey 安装完成。
   echo [跳过] 已检测到 Chocolatey。
 )
 echo.
-
 cls
 echo ===================================== > "%LOGFILE%"
 echo 安的爽 安装日志 >> "%LOGFILE%"

@@ -64,7 +64,7 @@ async function verifyPayload(token, secret) {
   if (!encodedPayload || !signature) return null
 
   const expectedSignature = await signValue(encodedPayload, secret)
-  if (signature !== expectedSignature) return null
+  if (!constantTimeEqual(signature, expectedSignature)) return null
 
   try {
     const payload = JSON.parse(base64UrlDecode(encodedPayload))
@@ -114,6 +114,17 @@ function base64UrlEncode(input) {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/g, '')
+}
+
+function constantTimeEqual(left, right) {
+  if (left.length !== right.length) return false
+
+  let mismatch = 0
+  for (let index = 0; index < left.length; index += 1) {
+    mismatch |= left.charCodeAt(index) ^ right.charCodeAt(index)
+  }
+
+  return mismatch === 0
 }
 
 function base64UrlDecode(value) {

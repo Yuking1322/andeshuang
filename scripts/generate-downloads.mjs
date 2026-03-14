@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { windowsPresetDownloads } from '../src/data/downloadPresets.js'
+import { resolveDependencies } from '../src/data/environments.js'
 import { generateDetectionLauncher } from '../src/utils/detectionScript.js'
 import { generateScript } from '../src/utils/scriptGenerator.js'
 
@@ -16,7 +17,7 @@ for (const preset of windowsPresetDownloads) {
   const content =
     preset.kind === 'detection'
       ? generateDetectionLauncher()
-      : generateScript(preset.packageIds, {
+      : generateScript(resolveDependencies(preset.packageIds), {
           useChocolatey: true,
           mode: 'install',
           sourceLabel: 'Windows 预置包'

@@ -14,7 +14,6 @@ set "PIP_MIRROR_READY=0"
 pushd "%CD%"
 CD /D "%~dp0"
 echo.
-
 cls
 echo ===================================== > "%LOGFILE%"
 echo 安的爽 安装日志 >> "%LOGFILE%"
@@ -28,6 +27,22 @@ echo 日志文件：%LOGFILE%
 echo.
 echo [开始] 执行 安装流程...
 echo [开始] 执行 安装流程... >> "%LOGFILE%"
+echo.
+echo [安装] uv
+echo [安装] uv >> "%LOGFILE%"
+echo [提示] uv 使用官方安装脚本，安装后可直接管理 Python 与依赖。
+echo [提示] uv 使用官方安装脚本，安装后可直接管理 Python 与依赖。 >> "%LOGFILE%"
+set "PACKAGE_FAILED="
+call powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex" >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
+if defined PACKAGE_FAILED (
+  echo [失败] uv
+  echo [失败] uv >> "%LOGFILE%"
+  set /a FAILED_COUNT+=1
+) else (
+  echo [成功] uv
+  echo [成功] uv >> "%LOGFILE%"
+)
 echo.
 echo [安装] Python · 3.13 推荐
 echo [安装] Python · 3.13 推荐 >> "%LOGFILE%"

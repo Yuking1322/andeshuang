@@ -14,7 +14,6 @@ set "PIP_MIRROR_READY=0"
 pushd "%CD%"
 CD /D "%~dp0"
 echo.
-
 cls
 echo ===================================== > "%LOGFILE%"
 echo 安的爽 安装日志 >> "%LOGFILE%"

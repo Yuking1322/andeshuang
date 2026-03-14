@@ -1,166 +1,95 @@
-# 安的爽验收清单
+# 安的爽上线验收清单
 
-这份清单用于上线前后的人工验收，目标是快速确认：
+这份清单用于发布前后的人工验收，重点确认登录链路、后台控制台、本地账号策略和 Cloudflare 安全配置都已经落地。
 
-- 站点是否已经部署到最新版本
-- LinuxDO 登录链路是否正常
-- 管理后台是否只对管理员开放
-- Web Analytics 是否已经挂上
-- 体检、安装、卸载、预置下载是否可用
-
-建议按顺序执行，做完一项就打勾。
-
----
-
-## 一、上线状态
+## 一、站点状态
 
 - [ ] 打开 `https://andeshuang.pages.dev`
-- [ ] 页面标题显示为 `安的爽`
-- [ ] 首页可以正常加载，没有白屏或明显样式错乱
-- [ ] 首页能看到 LinuxDO 登录入口
-- [ ] 页面资源加载正常，没有明显 404
-
-建议额外确认：
-
-- [ ] Cloudflare Pages 最新部署状态为成功
-- [ ] 当前主域名已经切到最新部署版本
-
----
+- [ ] 首页可以正常加载，没有白屏、明显样式错乱或资源 404
+- [ ] 最新 Cloudflare Pages 部署状态为成功
+- [ ] 主域名已经切到最新部署版本
 
 ## 二、LinuxDO 登录链路
 
-- [ ] 点击 `使用 LinuxDO 登录`
-- [ ] 浏览器跳转到 `connect.linux.do/oauth2/authorize`
-- [ ] 在 LinuxDO 授权成功后，能回到 `https://andeshuang.pages.dev`
-- [ ] 回跳后不再停留在登录页，而是进入控制台
+- [ ] 点击“使用 LinuxDO 登录”
+- [ ] 浏览器正确跳转到 `connect.linux.do/oauth2/authorize`
+- [ ] 授权成功后回到 `https://andeshuang.pages.dev`
+- [ ] 回跳后进入控制台，而不是停留在登录页
 - [ ] 刷新页面后仍然保持登录状态
-- [ ] 点击 `退出登录` 后，重新回到登录入口页
+- [ ] 点击退出登录后，重新回到登录入口
 
-如果这一组失败，优先检查：
+重点排查项：
 
-- LinuxDO 后台回调地址是否仍然是  
-  `https://andeshuang.pages.dev/api/auth/linuxdo/callback`
-- Cloudflare Pages Secrets 是否配置完整
-- 最新部署是否已经完成
+- [ ] LinuxDO Connect 后台回调地址仍为 `https://andeshuang.pages.dev/api/auth/linuxdo/callback`
+- [ ] `LINUXDO_CLIENT_ID`、`LINUXDO_CLIENT_SECRET`、`SESSION_SECRET` 已在 Cloudflare 正式环境配置
 
----
+## 三、本地账号策略
 
-## 三、管理员后台权限
+- [ ] `AUTH_DB` 已绑定到正式环境
+- [ ] 登录页会按后台设置动态显示或隐藏注册入口
+- [ ] 当前注册模式与后台“账号管理”页显示一致
+- [ ] 如使用邀请码模式，登录页显示邀请码输入框
+- [ ] 使用有效邀请码注册可以成功创建账号并自动登录
+- [ ] 使用无效邀请码会得到明确错误提示
+- [ ] 如设置了名额上限，注册满额后登录页不再开放注册
+- [ ] 后台修改注册模式后，新开的登录页访问会按新策略生效
 
-管理员账号验收：
+## 四、后台控制台
 
-- [ ] 用你的 LinuxDO 账号登录
-- [ ] 右上角能看到 `管理后台`
-- [ ] 点击后能进入后台第一页
-- [ ] 后台第一页能看到 Cloudflare / 访问量 / 下载量入口
-- [ ] 后台第二页能看到“上线状态 / 流量说明 / 分发策略 / 下一步建议”
-
-权限隔离验收：
-
-- [ ] 用非管理员 LinuxDO 账号登录
-- [ ] 非管理员账号看不到 `管理后台`
-- [ ] 非管理员刷新后也不能直接进入后台视图
-
----
-
-## 四、Web Analytics
-
-- [ ] 你已经在 Cloudflare Pages 项目里点过 `Web Analytics -> Enable`
-- [ ] 最新部署完成后，再打开一次线上主页
-- [ ] 在后台第一页中，Cloudflare Analytics 状态不再是明显报错状态
-- [ ] 到 Cloudflare Pages 项目 `Metrics / Web Analytics` 中确认开始有数据
-
-说明：
-
-- Web Analytics 脚本注入通常依赖一次新的部署
-- 即使脚本已经注入，控制台里出现统计数据也可能会有一点延迟
-
----
+- [ ] 管理员账号登录后可以看到“管理后台”
+- [ ] 第一页可以访问 Cloudflare、Pages、Analytics、下载分发入口
+- [ ] 第二页可以看到“账号管理”
+- [ ] 账号管理页能看到总注册人数、近 7 天注册、近 7 天登录、邀请码数量
+- [ ] 账号管理页能直接保存注册模式、邀请码和名额上限
+- [ ] 账号管理页能停用或恢复某个本地账号
+- [ ] 被停用账号再次登录会收到明确提示
+- [ ] 非管理员账号登录后看不到“管理后台”
 
 ## 五、控制台核心功能
 
-### 1. 智能体检
-
-- [ ] 在控制台能看到“智能体检”入口
-- [ ] 点击下载 `一键体检器`
-- [ ] 在 Windows 上双击运行体检器
-- [ ] 桌面成功生成检测结果文件
-- [ ] 回到页面导入检测结果成功
-- [ ] 导入后左侧状态栏的“已识别”数量发生变化
-
-### 2. 环境配置
-
-- [ ] 能正常勾选软件包
-- [ ] 依赖项会自动计入待安装结果
-- [ ] 左侧常驻状态栏会实时更新
+- [ ] 可以下载体检脚本
+- [ ] Windows 双击运行体检脚本后，能生成检测结果文件
+- [ ] 检测结果导入页面后，左侧状态栏会更新已识别数量
+- [ ] 可以正常搜索环境、切换分类、切换自动化等级和版本
+- [ ] 依赖项会自动进入待安装列表
 - [ ] 已安装项会被正确跳过
+- [ ] 可以生成安装脚本并成功下载
+- [ ] 可以生成卸载脚本并成功下载
 
-### 3. 动态安装脚本
+## 六、预置下载与静态资源
 
-- [ ] 点击生成安装脚本
-- [ ] 能成功弹出预览
-- [ ] 能下载 `安的爽-一键安装.bat`
-- [ ] Windows 上双击后脚本可以开始执行
-- [ ] 日志文件会生成在脚本所在目录
+- [ ] 7 个预置 Windows 下载包都能正常下载
+- [ ] `lightning-mark.svg`、首页静态资源和样式文件都可正常加载
+- [ ] 下载相关链接不会跳到错误地址
 
-### 4. 后悔药卸载脚本
+## 七、Cloudflare 安全与流量
 
-- [ ] 点击 `后悔药`
-- [ ] 能成功弹出卸载脚本预览
-- [ ] 能下载 `安的爽-后悔药.bat`
-- [ ] Windows 上双击后能开始执行卸载流程
-- [ ] 卸载日志也会生成
+- [ ] `public/_headers` 已在正式环境生效
+- [ ] 响应头里可以看到 CSP、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Permissions-Policy`
+- [ ] 已启用 Cloudflare Managed Ruleset
+- [ ] 已为 `/api/auth/local/login` 和 `/api/auth/local/register` 配置 rate limiting rules
+- [ ] 已配置针对 `/api/auth/*` 与 `/api/session` 的方法白名单 WAF custom rule
+- [ ] `Security Events` 或 `Security Analytics` 中没有明显误拦截
 
-### 5. 预置 Windows 包
+可参考：
 
-- [ ] `health-check.cmd` 可下载
-- [ ] `frontend-starter.bat` 可下载
-- [ ] `backend-starter.bat` 可下载
-- [ ] `data-science-starter.bat` 可下载
-- [ ] `deep-learning-starter.bat` 可下载
-- [ ] `fullstack-starter.bat` 可下载
+- [Cloudflare 限流 / WAF 建议](./cloudflare-security.md)
 
----
+## 八、Analytics 与发布收尾
 
-## 六、报错兜底
+- [ ] Cloudflare Web Analytics 已启用
+- [ ] 正式域名访问后，Cloudflare 后台能看到新的统计数据
+- [ ] `npm run build` 在当前代码上可以通过
+- [ ] LinuxDO Client Secret 如曾外泄，已完成轮换
 
-- [ ] 安装失败时，页面或脚本有明确提示查看日志
-- [ ] 日志文件名以 `andeshuang-install` 或 `andeshuang-uninstall` 开头
-- [ ] 脚本不是遇到一个失败就直接黑盒退出
-- [ ] 页面里仍然保留了“常见失败原因”说明
+## 九、发布记录
 
-建议至少人工模拟或观察一次：
-
-- [ ] 管理员权限不足时的提示
-- [ ] 网络不通或包源失败时的提示
-
----
-
-## 七、发布前最终确认
-
-可以对外发出前，至少满足下面这些：
-
-- [ ] 主站可访问
-- [ ] LinuxDO 登录成功
-- [ ] `yuking` 能看到管理后台
-- [ ] 非管理员账号看不到管理后台
-- [ ] 控制台主要功能可用
-- [ ] 预置下载包都能下载
-- [ ] Web Analytics 已启用并出现数据
-- [ ] Cloudflare Pages 最新部署为成功
-
----
-
-## 八、建议记录项
-
-每次正式发版本时，顺手记录一下：
-
-- 验收日期：
-- 验收人：
-- 线上域名：
-- Cloudflare 部署版本：
-- LinuxDO 登录结果：
-- 管理后台结果：
-- Web Analytics 结果：
-- 是否允许对外发布：
-
+- [ ] 验收日期
+- [ ] 验收人
+- [ ] 线上域名
+- [ ] Cloudflare 部署版本
+- [ ] LinuxDO 登录结果
+- [ ] 本地账号策略结果
+- [ ] 后台控制台结果
+- [ ] Analytics 结果
+- [ ] 是否允许对外发布

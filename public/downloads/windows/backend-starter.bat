@@ -46,7 +46,19 @@ echo [成功] Chocolatey 安装完成。
   echo [跳过] 已检测到 Chocolatey。
 )
 echo.
-
+echo [检查] winget 是否可用...
+where winget >nul 2>nul
+if %errorlevel% neq 0 (
+  echo [警告] 未检测到 winget，某些软件可能无法安装。
+  echo [提示] winget 在 Windows 10 1809+ 和 Windows 11 上默认可用。
+  echo [提示] 如需安装 winget，请访问 Microsoft Store 搜索"应用安装程序"。
+  echo.
+  pause
+  exit /b 1
+) else (
+  echo [跳过] 已检测到 winget。
+)
+echo.
 cls
 echo ===================================== > "%LOGFILE%"
 echo 安的爽 安装日志 >> "%LOGFILE%"

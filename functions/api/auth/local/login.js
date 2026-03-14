@@ -62,25 +62,28 @@ export async function onRequestPost(context) {
     )
   }
 
-  const user = await authenticateLocalUser(
+  const result = await authenticateLocalUser(
     context.env.AUTH_DB,
     validated.value.username,
     validated.value.password
   )
 
-  if (!user) {
+  if (!result.ok) {
     return json(
       {
         authenticated: false,
-        error: 'invalid_credentials',
-        message: '用户名或密码不正确。'
+        error: result.error,
+        message:
+          result.error === 'account_disabled'
+            ? '当前账号已被管理员停用，请联系管理员。'
+            : '用户名或密码不正确。'
       },
-      401
+      result.error === 'account_disabled' ? 403 : 401
     )
   }
 
   const secure = shouldUseSecureCookies(context.request)
-  const sessionCookie = await createSessionCookie(user, config.sessionSecret, secure)
+  const sessionCookie = await createSessionCookie(result.user, config.sessionSecret, secure)
   const headers = new Headers({
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store'
@@ -90,8 +93,8 @@ export async function onRequestPost(context) {
   return new Response(
     JSON.stringify({
       authenticated: true,
-      user,
-      isAdmin: isAdminUser(user, context.env)
+      user: result.user,
+      isAdmin: isAdminUser(result.user, context.env)
     }),
     {
       status: 200,

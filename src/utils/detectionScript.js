@@ -8,6 +8,7 @@ const EMPTY_RESULT = {
 export function generateDetectionScript() {
   return String.raw`[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = 'SilentlyContinue'
+$ProgressPreference = 'SilentlyContinue'
 
 function New-Result {
   param(
@@ -118,6 +119,7 @@ function Test-PythonModule {
   $pythonSnippet = @"
 import importlib.util
 import sys
+
 name = sys.argv[1]
 spec = importlib.util.find_spec(name)
 if spec is None:
@@ -151,7 +153,7 @@ $results.pnpm = Get-CommandInstall 'pnpm'
 $results.uv = Get-CommandInstall 'uv'
 $results.python = Get-CommandInstall 'python'
 $results.pipx = Get-CommandInstall 'pipx'
-$results.jupyterlab = Merge-Result (Get-CommandInstall 'jupyter-lab' @('--version')) (Get-CommandInstall 'jupyter' @('lab', '--version')))
+$results.jupyterlab = Merge-Result (Get-CommandInstall 'jupyter-lab' @('--version')) (Get-CommandInstall 'jupyter' @('lab', '--version'))
 $results.openjdk = Merge-Result (Get-CommandInstall 'java' @('-version')) (Get-RegistryInstall @('OpenJDK', 'Temurin', 'JDK'))
 $results.dotnet = Get-CommandInstall 'dotnet'
 $results.go = Get-CommandInstall 'go' @('version')
@@ -196,41 +198,62 @@ $payload = [ordered]@{
 $outputPath = Join-Path ([Environment]::GetFolderPath('Desktop')) 'andeshuang-detection.json'
 
 try {
-  $payload | ConvertTo-Json -Depth 6 | Set-Content -Path $outputPath -Encoding UTF8
+  $jsonText = $payload | ConvertTo-Json -Depth 6
+  [System.IO.File]::WriteAllText($outputPath, $jsonText, [System.Text.UTF8Encoding]::new($false))
   Write-Host ''
   Write-Host '检测完成，结果文件已保存到桌面：' -ForegroundColor Green
   Write-Host $outputPath -ForegroundColor Cyan
   Write-Host ''
   Write-Host '把这个 JSON 文件导回安的爽页面，就能自动跳过已安装的软件。' -ForegroundColor Yellow
+  exit 0
 } catch {
   Write-Host ''
-  Write-Host '保存文件失败！' -ForegroundColor Red
+  Write-Host '保存文件失败。' -ForegroundColor Red
   Write-Host "错误信息：$($_.Exception.Message)" -ForegroundColor Red
   Write-Host ''
-  Write-Host '请尝试以管理员身份运行，或者检查桌面是否有写入权限。' -ForegroundColor Yellow
-}
-
-Write-Host ''
-Write-Host '按任意键退出...' -ForegroundColor Gray
-$null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-Pause`
+  Write-Host '请尝试以管理员身份运行，或检查桌面是否有写入权限。' -ForegroundColor Yellow
+  exit 1
+}`
 }
 
 export function generateDetectionLauncher() {
   const script = generateDetectionScript()
-  const encodedCommand = toUtf16LeBase64(script)
+  const encodedScript = toUtf8BomBase64(script)
+  const chunks = chunkString(encodedScript, 900)
+  const envAssignments = chunks
+    .map((chunk, index) => `set "PS_CHUNK_${index + 1}=${chunk}"`)
+    .join('\r\n')
+  const envJoin = chunks
+    .map((_, index) => `$env:PS_CHUNK_${index + 1}`)
+    .join(' + ')
 
   return `@echo off
+setlocal
 chcp 65001 >nul
-title 安的爽 - 一键环境体检
+title andeshuang health check
+set "PS1_PATH=%TEMP%\\andeshuang-health-check.ps1"
+${envAssignments}
 echo.
 echo =====================================
-echo        安的爽 - 一键环境体检
+echo        andeshuang health check
 echo =====================================
 echo.
-echo 正在检测当前电脑已安装的开发环境，请稍候...
+echo Starting environment detection...
 echo.
-powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${encodedCommand}
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$encoded = ${envJoin}; $bytes = [Convert]::FromBase64String($encoded); [System.IO.File]::WriteAllBytes($env:PS1_PATH, $bytes)"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PS1_PATH%"
+set "ps_exit=%errorlevel%"
+del "%PS1_PATH%" >nul 2>&1
+echo.
+if not "%ps_exit%"=="0" (
+  echo Detection failed. Press any key to close.
+  pause >nul
+  endlocal
+  exit /b %ps_exit%
+)
+echo Detection complete. Press any key to close.
+pause >nul
+endlocal
 `
 }
 
@@ -272,23 +295,24 @@ export function getDetectionEntry(snapshot, packageId) {
   return snapshot?.results?.[packageId] ?? EMPTY_RESULT
 }
 
-function toUtf16LeBase64(input) {
-  const bytes = new Uint8Array(input.length * 2)
-
-  for (let index = 0; index < input.length; index += 1) {
-    const code = input.charCodeAt(index)
-    bytes[index * 2] = code & 255
-    bytes[index * 2 + 1] = code >> 8
-  }
-
+function toUtf8BomBase64(input) {
+  const encoder = new TextEncoder()
+  const bom = new Uint8Array([0xef, 0xbb, 0xbf])
+  const body = encoder.encode(input)
+  const combined = new Uint8Array(bom.length + body.length)
+  combined.set(bom)
+  combined.set(body, bom.length)
   let binary = ''
-  bytes.forEach((byte) => {
+  combined.forEach((byte) => {
     binary += String.fromCharCode(byte)
   })
+  return btoa(binary)
+}
 
-  if (typeof btoa === 'function') {
-    return btoa(binary)
+function chunkString(value, size) {
+  const chunks = []
+  for (let index = 0; index < value.length; index += size) {
+    chunks.push(value.slice(index, index + size))
   }
-
-  return Buffer.from(binary, 'binary').toString('base64')
+  return chunks
 }

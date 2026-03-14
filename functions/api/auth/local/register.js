@@ -1,14 +1,18 @@
 import { createSessionCookie, shouldUseSecureCookies } from '../../../_shared/session.js'
 import { getLinuxDOConfig } from '../../../_shared/linuxdo.js'
 import {
+  assertLocalRegistrationAllowed,
   createLocalUser,
-  hasLocalAuthDatabase,
+  getLocalAuthClientConfig,
   LocalAuthError,
+  releaseInviteUse,
+  reserveInviteUse,
   validateRegistrationInput
 } from '../../../_shared/local-auth.js'
 
 export async function onRequestPost(context) {
   const config = getLinuxDOConfig(context.env)
+  const localAuth = await getLocalAuthClientConfig(context.env)
 
   if (!isSameOriginRequest(context.request)) {
     return json(
@@ -21,7 +25,7 @@ export async function onRequestPost(context) {
     )
   }
 
-  if (!hasLocalAuthDatabase(context.env)) {
+  if (!localAuth.enabled) {
     return json(
       {
         authenticated: false,
@@ -55,7 +59,10 @@ export async function onRequestPost(context) {
     )
   }
 
-  const validated = validateRegistrationInput(body.value)
+  const validated = validateRegistrationInput(body.value, {
+    inviteCodeRequired: localAuth.inviteCodeRequired
+  })
+
   if (!validated.ok) {
     return json(
       {
@@ -67,7 +74,16 @@ export async function onRequestPost(context) {
     )
   }
 
+  let reservedInviteId = 0
+
   try {
+    const access = await assertLocalRegistrationAllowed(context.env, validated.value.inviteCode)
+
+    if (access.matchedInviteId) {
+      await reserveInviteUse(context.env.AUTH_DB, access.matchedInviteId)
+      reservedInviteId = access.matchedInviteId
+    }
+
     const user = await createLocalUser(context.env.AUTH_DB, validated.value)
     const secure = shouldUseSecureCookies(context.request)
     const sessionCookie = await createSessionCookie(user, config.sessionSecret, secure)
@@ -89,6 +105,10 @@ export async function onRequestPost(context) {
       }
     )
   } catch (error) {
+    if (reservedInviteId) {
+      await releaseInviteUse(context.env.AUTH_DB, reservedInviteId).catch(() => {})
+    }
+
     if (error instanceof LocalAuthError) {
       return json(
         {

@@ -67,6 +67,10 @@ function generateWindowsBat(packages, options) {
     })
   )
 
+  const needsWinget = executablePackages.some((pkg) =>
+    pkg.commands.some((command) => /\bwinget\b/i.test(command))
+  )
+
   let bat = `@echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul
@@ -80,8 +84,7 @@ set "LOGFILE=%LOGFILE: =0%"
 set /a FAILED_COUNT=0
 set "PIP_MIRROR_READY=0"
 
-${needsManagerBootstrap ? buildManagerBootstrap(options.managerKey, isInstall) : 'pushd "%CD%"\nCD /D "%~dp0"\necho.\n'}
-cls
+${needsManagerBootstrap ? buildManagerBootstrap(options.managerKey, isInstall) : 'pushd "%CD%"\nCD /D "%~dp0"\necho.\n'}${needsWinget ? buildWingetCheck() : ''}cls
 echo ===================================== > "%LOGFILE%"
 echo 安的爽 ${operationText}日志 >> "%LOGFILE%"
 echo 脚本来源: ${scriptSource} >> "%LOGFILE%"
@@ -259,6 +262,23 @@ exit /b 1`
   }
 ) else (
   echo [跳过] 已检测到 Scoop。
+)
+echo.
+`
+}
+
+function buildWingetCheck() {
+  return `echo [检查] winget 是否可用...
+where winget >nul 2>nul
+if %errorlevel% neq 0 (
+  echo [警告] 未检测到 winget，某些软件可能无法安装。
+  echo [提示] winget 在 Windows 10 1809+ 和 Windows 11 上默认可用。
+  echo [提示] 如需安装 winget，请访问 Microsoft Store 搜索"应用安装程序"。
+  echo.
+  pause
+  exit /b 1
+) else (
+  echo [跳过] 已检测到 winget。
 )
 echo.
 `

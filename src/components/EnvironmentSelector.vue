@@ -329,7 +329,8 @@ const handleDetectionImport = async (event) => {
   if (!file) return
 
   try {
-    const payload = JSON.parse(await file.text())
+    const raw = await file.text()
+    const payload = JSON.parse(raw.replace(/^\uFEFF/, ''))
     const normalized = normalizeDetectionPayload(payload)
     detectionSnapshot.value = normalized
     persistDetectionSnapshot(normalized)

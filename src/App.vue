@@ -121,16 +121,6 @@ const authErrorMessage = computed(() => {
 
   return messages[authErrorCode.value] || '登录失败，请重新尝试。'
 })
-const entryModeTitle = computed(() => ({
-  linuxdo: '使用 LinuxDO 登录',
-  localLogin: '使用内测账号登录',
-  localRegister: '创建内测账号'
-}[entryMode.value] || '使用 LinuxDO 登录'))
-const entryModeDescription = computed(() => ({
-  linuxdo: '登录后才能进入控制台。v1 保持轻量，不保存用户数据库，只使用安全 Cookie 维持会话。',
-  localLogin: '如果你的同学没有 LinuxDO，可以直接用内测账号登录后体验控制台。',
-  localRegister: '内测阶段支持你自己注册一个测试账号。注册成功后会自动进入控制台。'
-}[entryMode.value] || '登录后才能进入控制台。'))
 
 onMounted(() => {
   if (typeof window !== 'undefined') {

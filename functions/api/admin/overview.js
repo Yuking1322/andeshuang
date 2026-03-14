@@ -1,36 +1,19 @@
-import { getLinuxDOConfig, isAdminUser } from '../../_shared/linuxdo.js'
-import { readSession } from '../../_shared/session.js'
+import { getLocalAuthAdminSnapshot } from '../../_shared/local-auth.js'
+import { json, requireAdminRequest } from '../../_shared/admin.js'
 
 export async function onRequestGet(context) {
-  const config = getLinuxDOConfig(context.env)
-  const payload = config.sessionSecret
-    ? await readSession(context.request, config.sessionSecret)
-    : null
-
-  if (!payload?.user) {
-    return json(
-      {
-        authenticated: false
-      },
-      401
-    )
+  const admin = await requireAdminRequest(context)
+  if (!admin.ok) {
+    return admin.response
   }
 
-  if (!isAdminUser(payload.user, context.env)) {
-    return json(
-      {
-        authenticated: true,
-        authorized: false
-      },
-      403
-    )
-  }
+  const authManagement = await getLocalAuthAdminSnapshot(context.env)
 
   return json({
     authenticated: true,
     authorized: true,
     admin: {
-      user: payload.user
+      user: admin.user
     },
     dashboards: {
       cloudflareHome: context.env.CLOUDFLARE_DASHBOARD_URL || 'https://dash.cloudflare.com/',
@@ -40,17 +23,8 @@ export async function onRequestGet(context) {
     },
     operations: {
       staticRequestsPlan: 'Pages 静态资源通常不消耗 Functions 请求额度',
-      functionsBudget: 'Workers Free 额度通常按每日 100000 次请求计算'
-    }
-  })
-}
-
-function json(value, status = 200) {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store'
-    }
+      functionsBudget: 'Workers Free 通常按每日 100000 次请求估算'
+    },
+    authManagement
   })
 }
