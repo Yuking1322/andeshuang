@@ -1,7 +1,14 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { fetchAdminOverview } from '../utils/adminApi.js'
+import {
+  deleteLocalAuthUser,
+  fetchAdminOverview,
+  generateLocalAuthInvite,
+  updateLocalAuthInvite,
+  updateLocalAuthSettings,
+  updateLocalAuthUser
+} from '../utils/adminApi.js'
 
 const props = defineProps({
   sessionUser: {
@@ -10,8 +17,33 @@ const props = defineProps({
   }
 })
 
-const activePage = ref('overview')
-const analyticsRuntimeDetected = ref(false)
+const emptyAuth = () => ({
+  available: false,
+  settings: {
+    registrationMode: 'invite_only',
+    registrationLimit: null,
+    inviteCodeCount: 0,
+    totalInviteCount: 0,
+    source: 'environment',
+    registrationStatus: 'local_auth_unavailable'
+  },
+  stats: {
+    totalUsers: 0,
+    enabledUsers: 0,
+    disabledUsers: 0,
+    recentRegistrations: 0,
+    recentLogins: 0,
+    registrationLimit: null,
+    remainingSlots: null,
+    registrationStatus: 'local_auth_unavailable',
+    inviteCodeCount: 0,
+    totalInviteCount: 0
+  },
+  invites: [],
+  users: []
+})
+
+const activePage = ref('accounts')
 const adminState = ref({
   status: 'loading',
   dashboards: {
@@ -23,650 +55,670 @@ const adminState = ref({
   operations: {
     staticRequestsPlan: '',
     functionsBudget: ''
+  },
+  authManagement: emptyAuth()
+})
+const settingsForm = ref({
+  registrationMode: 'invite_only',
+  registrationLimit: null
+})
+const inviteForm = ref({
+  label: '',
+  maxUses: 1
+})
+const userSearch = ref('')
+const userStatusFilter = ref('all')
+const savingSettings = ref(false)
+const generatingInvite = ref(false)
+const busyUserIds = ref({})
+const busyInviteIds = ref({})
+
+const authManagement = computed(() => adminState.value.authManagement || emptyAuth())
+const stats = computed(() => authManagement.value.stats || emptyAuth().stats)
+const settings = computed(() => authManagement.value.settings || emptyAuth().settings)
+const invites = computed(() => authManagement.value.invites || [])
+const users = computed(() => authManagement.value.users || [])
+
+const metricCards = computed(() => [
+  { key: 'users', label: '总注册人数', value: stats.value.totalUsers, hint: '当前 D1 里的全部本地账号' },
+  { key: 'recent', label: '近 7 天注册', value: stats.value.recentRegistrations, hint: '最近一周新增的账号' },
+  { key: 'enabled', label: '启用中账号', value: stats.value.enabledUsers, hint: '仍然可以登录的账号' },
+  { key: 'invites', label: '可用邀请码', value: stats.value.inviteCodeCount, hint: `已生成 ${stats.value.totalInviteCount} 个邀请码` }
+])
+
+const registrationModeLabel = computed(() => ({
+  public: '公开注册',
+  invite_only: '邀请码注册',
+  disabled: '关闭注册'
+}[settingsForm.value.registrationMode] || '邀请码注册'))
+
+const registrationStatusLabel = computed(() => ({
+  open: '可注册',
+  closed: '已关闭注册',
+  invite_codes_missing: '邀请码未配置',
+  invite_codes_exhausted: '邀请码已用完',
+  limit_reached: '注册名额已满',
+  local_auth_unavailable: '本地账号未启用'
+}[stats.value.registrationStatus] || '待确认'))
+
+const registrationStatusType = computed(() => ({
+  open: 'success',
+  closed: 'danger',
+  invite_codes_missing: 'warning',
+  invite_codes_exhausted: 'warning',
+  limit_reached: 'warning',
+  local_auth_unavailable: 'info'
+}[stats.value.registrationStatus] || 'info'))
+
+const registrationLimitLabel = computed(() => {
+  if (stats.value.registrationLimit === null || stats.value.registrationLimit === undefined) {
+    return '不限'
   }
+  return `${stats.value.totalUsers} / ${stats.value.registrationLimit}`
 })
 
-const appHomepage = computed(() =>
-  (import.meta.env.VITE_APP_HOMEPAGE || 'https://andeshuang.pages.dev').trim()
-)
-
-const adminLinks = computed(() => {
-  const dashboards = adminState.value.dashboards
-
-  return [
-    {
-      key: 'cloudflare',
-      title: 'Cloudflare 总控台',
-      description: '统一进入 Pages、Functions、日志和账号级控制台。',
-      href: dashboards.cloudflareHome || 'https://dash.cloudflare.com/',
-      cta: '打开总控台'
-    },
-    {
-      key: 'traffic',
-      title: '访问量入口',
-      description: dashboards.webAnalytics
-        ? '已配置专用的访问量入口，直接跳转查看 Web Analytics。'
-        : dashboards.pagesProject
-          ? '如果你已经在 Pages 项目里点了 Web Analytics 的 Enable，可以直接从项目页进入 Metrics 查看访问量。'
-          : '先进入 Cloudflare 总控台，在 Pages 项目的 Metrics / Web Analytics 中查看访问量。',
-      href: dashboards.webAnalytics || dashboards.pagesProject || dashboards.cloudflareHome || 'https://dash.cloudflare.com/',
-      cta: dashboards.webAnalytics
-        ? '查看访问量'
-        : dashboards.pagesProject
-          ? '去项目页看 Metrics'
-          : '去 Cloudflare 查访问量'
-    },
-    {
-      key: 'downloads',
-      title: '下载量入口',
-      description: dashboards.downloads
-        ? '已配置专用的下载量入口，适合查看静态资源或对象存储分发情况。'
-        : '下载量目前建议在 Cloudflare / GitHub Releases / R2 控制台里查看。',
-      href: dashboards.downloads || dashboards.pagesProject || dashboards.cloudflareHome || 'https://dash.cloudflare.com/',
-      cta: dashboards.downloads ? '查看下载量' : '查看下载分发'
-    },
-    {
-      key: 'pages',
-      title: 'Pages 项目入口',
-      description: dashboards.pagesProject
-        ? '直接进入 andeshuang.pages.dev 对应项目。'
-        : '进入 Pages 项目后可查看部署记录、域名、日志和 Functions。',
-      href: dashboards.pagesProject || dashboards.cloudflareHome || 'https://dash.cloudflare.com/',
-      cta: dashboards.pagesProject ? '打开 Pages 项目' : '去 Pages 项目页'
-    }
-  ]
+const filteredUsers = computed(() => {
+  const keyword = userSearch.value.trim().toLowerCase()
+  return users.value.filter((user) => {
+    const matchesStatus =
+      userStatusFilter.value === 'all' ||
+      (userStatusFilter.value === 'enabled' && user.isEnabled) ||
+      (userStatusFilter.value === 'disabled' && !user.isEnabled)
+    const matchesKeyword =
+      !keyword ||
+      user.username.toLowerCase().includes(keyword) ||
+      user.displayName.toLowerCase().includes(keyword)
+    return matchesStatus && matchesKeyword
+  })
 })
 
-const analyticsStatus = computed(() => {
-  if (analyticsRuntimeDetected.value) {
-    return '当前页面已检测到统计脚本'
-  }
-
-  if (adminState.value.dashboards.webAnalytics) {
-    return '已配置专用入口'
-  }
-
-  if (adminState.value.dashboards.pagesProject) {
-    return '可从 Pages 项目进入 Metrics'
-  }
-
-  return '待补充项目入口'
-})
-
-const analyticsHint = computed(() => {
-  if (analyticsRuntimeDetected.value) {
-    return '这说明当前页面至少已经挂上了 Cloudflare Web Analytics 脚本，后面重点看控制台数据是否开始累计。'
-  }
-
-  if (adminState.value.dashboards.webAnalytics) {
-    return '后台已经拿到专用 Analytics 入口，但我暂时还没在当前页面里观测到脚本，建议再看一次线上部署状态。'
-  }
-
-  if (adminState.value.dashboards.pagesProject) {
-    return '你可以直接从 Pages 项目页进 Metrics，再确认 Enable 之后的新部署是否已经完成。'
-  }
-
-  return '当前只保留了默认 Cloudflare 入口，建议把项目直达链接也补进环境变量。'
-})
-
-const launchChecklist = computed(() => [
+const launchItems = computed(() => [
   {
     key: 'homepage',
     label: '线上主页',
-    value: appHomepage.value,
+    value: (import.meta.env.VITE_APP_HOMEPAGE || 'https://andeshuang.pages.dev').trim(),
     status: 'done'
   },
   {
     key: 'functions',
     label: '登录服务端',
-    value: 'Cloudflare Pages Functions 承接 /api/session 与 /api/auth/*',
+    value: 'Pages Functions 已承接 /api/session 与 /api/auth/*',
     status: 'done'
   },
   {
-    key: 'downloads',
-    label: '预置下载分发',
-    value: '当前预置 Windows 包走 Pages 静态目录 public/downloads/windows',
-    status: 'done'
-  },
-  {
-    key: 'pages',
-    label: 'Pages 项目入口',
-    value: adminState.value.dashboards.pagesProject || '还没补充项目直达链接',
-    status: adminState.value.dashboards.pagesProject ? 'done' : 'todo'
+    key: 'registration',
+    label: '注册控制台',
+    value: describeRegistrationState(),
+    status: ['invite_codes_missing', 'invite_codes_exhausted'].includes(stats.value.registrationStatus) ? 'todo' : 'done'
   },
   {
     key: 'analytics',
     label: 'Web Analytics',
-    value: analyticsRuntimeDetected.value
-      ? '当前页面已检测到 Cloudflare beacon 脚本'
-      : adminState.value.dashboards.webAnalytics
-        ? '已经配置专用 Analytics 入口，建议确认最新部署是否已生效'
-        : '建议回到 Pages 项目 Metrics 再确认 Enable 和最新部署',
-    status: analyticsRuntimeDetected.value || adminState.value.dashboards.webAnalytics ? 'done' : 'todo'
+    value: adminState.value.dashboards.webAnalytics
+      ? '已配置专用入口，可以继续验证统计是否累积'
+      : '建议到 Pages 项目里确认 Metrics / Web Analytics',
+    status: adminState.value.dashboards.webAnalytics ? 'done' : 'todo'
+  },
+  {
+    key: 'protection',
+    label: '认证接口保护',
+    value: '仍需到 Cloudflare 配置 WAF 与 Rate Limiting 规则',
+    status: 'todo'
   }
 ])
 
-const strategyCards = computed(() => [
-  {
-    key: 'traffic',
-    title: '流量说明',
-    description: '静态页面和下载优先走 Pages，真正消耗 Functions 配额的是登录、会话和以后新增的后台接口。',
-    detail: adminState.value.operations.functionsBudget || 'Workers Free 通常按每日 100000 次请求量级来估算。'
-  },
-  {
-    key: 'release',
-    title: '发布方式',
-    description: '当前最稳的方式仍然是 GitHub 推送触发 Cloudflare Pages 自动部署。',
-    detail: '这次我已经把代码推到 origin/main，后续可继续沿用这条发布链路。'
-  },
-  {
-    key: 'downloads',
-    title: '下载分发',
-    description: '小脚本和预置傻瓜包继续放 Pages；大体积安装器以后再迁到 GitHub Releases 或 R2。',
-    detail: '这样前期够轻，后期也方便扩容。'
-  },
-  {
-    key: 'auth',
-    title: '登录策略',
-    description: '用户必须先通过 LinuxDO 登录，再进入控制台；管理员后台再基于白名单额外放行。',
-    detail: '当前白名单逻辑已经在服务端接口里生效。'
-  }
-])
-
-const nextStepItems = computed(() => {
-  const items = [
-    '重新打开线上站点并用 LinuxDO 登录一次，确认后台入口仍然只对你可见。',
-    '到 Cloudflare Pages 的最新部署页确认这次 GitHub 推送已经构建完成。'
+const adminLinks = computed(() => {
+  const dashboards = adminState.value.dashboards
+  return [
+    {
+      key: 'cloudflare',
+      title: 'Cloudflare 总控台',
+      description: '统一查看 Pages、Functions、日志和项目级安全配置。',
+      href: dashboards.cloudflareHome || 'https://dash.cloudflare.com/',
+      cta: '打开 Cloudflare'
+    },
+    {
+      key: 'pages',
+      title: 'Pages 项目入口',
+      description: dashboards.pagesProject ? '直接进入 andeshuang 的 Pages 项目。' : '把项目直达链接配进环境变量后，这里就能一键跳转。',
+      href: dashboards.pagesProject || dashboards.cloudflareHome || 'https://dash.cloudflare.com/',
+      cta: dashboards.pagesProject ? '打开 Pages 项目' : '去 Pages 控制台'
+    },
+    {
+      key: 'analytics',
+      title: '流量与 Analytics',
+      description: dashboards.webAnalytics ? '当前已经配置专用 Analytics 入口。' : '可从 Pages 项目里的 Metrics / Web Analytics 查看访问情况。',
+      href: dashboards.webAnalytics || dashboards.pagesProject || dashboards.cloudflareHome || 'https://dash.cloudflare.com/',
+      cta: dashboards.webAnalytics ? '查看 Analytics' : '去 Metrics'
+    },
+    {
+      key: 'downloads',
+      title: '下载分发入口',
+      description: dashboards.downloads ? '当前已经配置专用下载观察入口。' : '如果后续迁移到 R2 或 Releases，可以把分发入口继续挂到这里。',
+      href: dashboards.downloads || dashboards.pagesProject || dashboards.cloudflareHome || 'https://dash.cloudflare.com/',
+      cta: dashboards.downloads ? '查看下载流量' : '查看分发配置'
+    }
   ]
-
-  if (analyticsRuntimeDetected.value) {
-    items.push('现在重点观察 Cloudflare Metrics 里是否开始出现真实访问数据。')
-  } else {
-    items.push('如果 Metrics 里已经点过 Enable，但页面还没探测到脚本，优先确认最新部署是否已经完成。')
-  }
-
-  if (!adminState.value.dashboards.pagesProject) {
-    items.push('后面把 CLOUDFLARE_PAGES_PROJECT_URL 配进去，这样后台就能一键跳到你的项目页。')
-  }
-
-  return items
 })
 
-function refreshRuntimeSignals() {
-  if (typeof document === 'undefined') return
-  analyticsRuntimeDetected.value = Boolean(
-    document.querySelector('script[src*="static.cloudflareinsights.com/beacon.min.js"]')
-  )
+function syncSettingsForm() {
+  settingsForm.value = {
+    registrationMode: settings.value.registrationMode || 'invite_only',
+    registrationLimit: settings.value.registrationLimit ?? null
+  }
 }
 
-onMounted(async () => {
-  refreshRuntimeSignals()
+function applyOverview(payload) {
+  adminState.value = {
+    status: 'ready',
+    dashboards: payload.dashboards,
+    operations: payload.operations,
+    authManagement: payload.authManagement || emptyAuth()
+  }
+  syncSettingsForm()
+}
 
+async function loadAdminState(options = {}) {
+  if (!options.silent) {
+    adminState.value.status = 'loading'
+  }
   try {
-    const payload = await fetchAdminOverview()
-    adminState.value = {
-      status: 'ready',
-      dashboards: payload.dashboards,
-      operations: payload.operations
-    }
+    applyOverview(await fetchAdminOverview())
   } catch {
     adminState.value.status = 'error'
-    ElMessage.warning('管理员后台入口信息加载失败，已使用默认 Cloudflare 入口')
-  } finally {
-    refreshRuntimeSignals()
-    window.setTimeout(refreshRuntimeSignals, 400)
+    ElMessage.warning('加载管理数据失败')
   }
+}
+
+async function handleSaveSettings() {
+  savingSettings.value = true
+  try {
+    const payload = await updateLocalAuthSettings({
+      registrationMode: settingsForm.value.registrationMode,
+      registrationLimit: settingsForm.value.registrationLimit
+    })
+    adminState.value = { ...adminState.value, authManagement: payload.authManagement }
+    syncSettingsForm()
+    ElMessage.success('注册策略已保存')
+  } catch (error) {
+    ElMessage.error(formatAdminError(error))
+  } finally {
+    savingSettings.value = false
+  }
+}
+
+async function handleGenerateInvite() {
+  generatingInvite.value = true
+  try {
+    const payload = await generateLocalAuthInvite({
+      label: inviteForm.value.label,
+      maxUses: inviteForm.value.maxUses
+    })
+    adminState.value = { ...adminState.value, authManagement: payload.authManagement }
+    const code = payload.invite?.code || ''
+    inviteForm.value = { label: '', maxUses: 1 }
+
+    if (code && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(code)
+      ElMessage.success(`邀请码已生成并复制：${code}`)
+    } else {
+      ElMessage.success('邀请码已生成')
+    }
+  } catch (error) {
+    ElMessage.error(formatAdminError(error))
+  } finally {
+    generatingInvite.value = false
+  }
+}
+
+async function handleToggleInvite(invite) {
+  if (!invite.editable) return
+  busyInviteIds.value = { ...busyInviteIds.value, [invite.id]: true }
+  try {
+    const payload = await updateLocalAuthInvite({
+      inviteId: invite.id,
+      isEnabled: !invite.isEnabled
+    })
+    adminState.value = { ...adminState.value, authManagement: payload.authManagement }
+    ElMessage.success(invite.isEnabled ? '邀请码已停用' : '邀请码已恢复')
+  } catch (error) {
+    ElMessage.error(formatAdminError(error))
+  } finally {
+    const next = { ...busyInviteIds.value }
+    delete next[invite.id]
+    busyInviteIds.value = next
+  }
+}
+
+async function handleToggleUser(user) {
+  busyUserIds.value = { ...busyUserIds.value, [user.id]: true }
+  try {
+    const payload = await updateLocalAuthUser({
+      userId: user.id,
+      isEnabled: !user.isEnabled
+    })
+    adminState.value = { ...adminState.value, authManagement: payload.authManagement }
+    ElMessage.success(user.isEnabled ? '账号已停用' : '账号已恢复')
+  } catch (error) {
+    ElMessage.error(formatAdminError(error))
+  } finally {
+    const next = { ...busyUserIds.value }
+    delete next[user.id]
+    busyUserIds.value = next
+  }
+}
+
+async function handleDeleteUser(user) {
+  if (typeof window !== 'undefined') {
+    const confirmed = window.confirm(`确定要删除 ${user.displayName || user.username} 吗？此操作无法撤销。`)
+    if (!confirmed) return
+  }
+
+  busyUserIds.value = { ...busyUserIds.value, [user.id]: true }
+  try {
+    const payload = await deleteLocalAuthUser({
+      userId: user.id
+    })
+    adminState.value = { ...adminState.value, authManagement: payload.authManagement }
+    ElMessage.success('账号已删除')
+  } catch (error) {
+    ElMessage.error(formatAdminError(error))
+  } finally {
+    const next = { ...busyUserIds.value }
+    delete next[user.id]
+    busyUserIds.value = next
+  }
+}
+
+async function handleCopyInvite(code) {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      throw new Error('copy_unavailable')
+    }
+    await navigator.clipboard.writeText(code)
+    ElMessage.success('邀请码已复制')
+  } catch {
+    ElMessage.warning(`请手动复制：${code}`)
+  }
+}
+
+function describeRegistrationState() {
+  if (settings.value.registrationMode === 'disabled') return '当前已关闭注册，只保留已有账号登录'
+  if (settings.value.registrationMode === 'public') return '当前为公开注册模式'
+  if (stats.value.registrationStatus === 'invite_codes_missing') return '当前为邀请码注册，但还没有生成任何邀请码'
+  if (stats.value.registrationStatus === 'invite_codes_exhausted') return '当前为邀请码注册，但现有邀请码都已经用完'
+  return `当前为邀请码注册，可用邀请码 ${stats.value.inviteCodeCount} 个`
+}
+
+function formatAdminError(error) {
+  return ({
+    cannot_disable_current_user: '不能停用当前正在使用的管理员账号。',
+    cannot_delete_current_user: '不能删除当前正在使用的管理员账号。',
+    invalid_user: '目标用户不存在，请刷新后重试。',
+    user_not_found: '目标用户不存在，请刷新后重试。',
+    user_delete_failed: '账号删除失败，请稍后重试。',
+    invalid_invite_limit: '邀请码可用次数必须大于 0。',
+    invite_generate_failed: '邀请码生成失败，请稍后重试。',
+    invite_update_failed: '邀请码更新失败，请稍后重试。',
+    invalid_invite: '目标邀请码不存在，请刷新后重试。',
+    invite_not_found: '目标邀请码不存在，请刷新后重试。',
+    invite_limit_too_small: '新的可用次数不能小于当前已使用次数。'
+  }[error?.code || ''] || '操作失败，请稍后重试。')
+}
+
+function formatDateTime(value) {
+  if (!value) return '暂无记录'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date)
+}
+
+function formatInviteUsage(invite) {
+  if (invite.maxUses === null || invite.maxUses === undefined) {
+    return invite.usedCount === null || invite.usedCount === undefined ? '不限' : `已用 ${invite.usedCount} 次 / 不限`
+  }
+  return `${invite.usedCount} / ${invite.maxUses}`
+}
+
+function formatInviteState(invite) {
+  if (!invite.isEnabled) return ['已停用', 'danger']
+  if (invite.remainingUses === 0) return ['已用完', 'warning']
+  return ['可使用', 'success']
+}
+
+onMounted(() => {
+  syncSettingsForm()
+  loadAdminState()
 })
 </script>
 
 <template>
   <section class="admin-stage">
-    <section class="admin-hero">
-      <div>
-        <p class="admin-label">Admin Console</p>
-        <h2>{{ activePage === 'overview' ? '这是你的管理员后台第一页' : '这是你的管理员后台第二页' }}</h2>
-        <p class="admin-copy">
-          {{
-            activePage === 'overview'
-              ? '第一页继续集中放运营入口：当前登录管理员、访问量入口、下载量入口和 Cloudflare Analytics 状态。'
-              : '第二页专门放上线状态、流量说明、下载分发策略和部署检查项，方便你发出之前自己快速过一遍。'
-          }}
-        </p>
+    <section class="hero-card">
+      <div class="hero-copy">
+        <p class="eyebrow">管理后台</p>
+        <h2>{{ activePage === 'accounts' ? '账号管理' : activePage === 'overview' ? '运营入口' : '上线状态' }}</h2>
+        <p>{{ activePage === 'accounts' ? '查看注册统计、管理账号和邀请码' : activePage === 'overview' ? '流量分析与项目控制台' : '发布前检查清单' }}</p>
       </div>
 
-      <div class="admin-hero-side">
-        <div class="admin-owner">
-          <img v-if="sessionUser?.avatar" :src="sessionUser.avatar" alt="avatar">
-          <div>
-            <strong>{{ sessionUser?.name || sessionUser?.username }}</strong>
-            <span>@{{ sessionUser?.username }}</span>
-          </div>
+      <div class="hero-side">
+        <div class="owner-card">
+          <strong>{{ sessionUser?.name || sessionUser?.username }}</strong>
+          <span>@{{ sessionUser?.username }}</span>
         </div>
 
-        <div class="view-switch">
-          <button
-            type="button"
-            :class="['view-switch-button', { active: activePage === 'overview' }]"
-            @click="activePage = 'overview'"
-          >
-            第一页
-          </button>
-          <button
-            type="button"
-            :class="['view-switch-button', { active: activePage === 'launch' }]"
-            @click="activePage = 'launch'"
-          >
-            第二页
-          </button>
+        <div class="tabs">
+          <button :class="{ active: activePage === 'accounts' }" @click="activePage = 'accounts'">账号管理</button>
+          <button :class="{ active: activePage === 'overview' }" @click="activePage = 'overview'">运营入口</button>
+          <button :class="{ active: activePage === 'launch' }" @click="activePage = 'launch'">上线状态</button>
         </div>
       </div>
     </section>
 
-    <template v-if="activePage === 'overview'">
-      <div class="admin-grid">
-        <section class="admin-card owner-card">
-          <p class="card-label">当前登录用户</p>
-          <h3>{{ sessionUser?.name || sessionUser?.username }}</h3>
-          <p>当前后台默认按已登录 LinuxDO 账号展示，不单独维护用户数据库。</p>
-          <div class="meta-pills">
-            <span>@{{ sessionUser?.username }}</span>
-            <span v-if="sessionUser?.trustLevel !== null">信任等级 {{ sessionUser?.trustLevel }}</span>
+    <template v-if="activePage === 'accounts'">
+      <section class="metrics-grid">
+        <article v-for="item in metricCards" :key="item.key" class="metric-card">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+          <p>{{ item.hint }}</p>
+        </article>
+      </section>
+
+      <div class="two-col">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">注册控制台</p>
+              <h3>注册策略设置</h3>
+            </div>
+            <el-tag :type="registrationStatusType" round>{{ registrationStatusLabel }}</el-tag>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              <span>注册模式</span>
+              <el-select v-model="settingsForm.registrationMode" size="large">
+                <el-option label="公开注册" value="public" />
+                <el-option label="邀请码注册" value="invite_only" />
+                <el-option label="关闭注册" value="disabled" />
+              </el-select>
+            </label>
+
+            <label>
+              <span>注册名额上限</span>
+              <el-input-number v-model="settingsForm.registrationLimit" :min="1" controls-position="right" />
+            </label>
+          </div>
+
+          <div class="action-row">
+            <el-button type="primary" :loading="savingSettings" @click="handleSaveSettings">保存注册策略</el-button>
+            <el-button plain @click="syncSettingsForm">撤回未保存修改</el-button>
+          </div>
+
+          <div class="divider" />
+
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">邀请码生成器</p>
+              <h3>生成新邀请码</h3>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              <span>备注名称</span>
+              <el-input v-model="inviteForm.label" maxlength="48" show-word-limit placeholder="例如：首批内测 / KOL / 合作伙伴" />
+            </label>
+
+            <label>
+              <span>可用次数</span>
+              <el-input-number v-model="inviteForm.maxUses" :min="1" controls-position="right" />
+            </label>
+          </div>
+
+          <div class="action-row">
+            <el-button type="primary" :loading="generatingInvite" @click="handleGenerateInvite">自动生成邀请码</el-button>
           </div>
         </section>
 
-        <section class="admin-card status-card">
-          <p class="card-label">Cloudflare Analytics</p>
-          <h3>{{ analyticsStatus }}</h3>
-          <p>{{ analyticsHint }}</p>
-          <div class="status-list">
-            <p><span>静态资源</span><strong>优先走 Pages</strong></p>
-            <p><span>登录接口</span><strong>走 Functions</strong></p>
-            <p><span>函数额度</span><strong>{{ adminState.operations.functionsBudget || 'Workers Free 100000 次/日量级' }}</strong></p>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">数据可视化</p>
+              <h3>数据统计</h3>
+            </div>
+            <span class="muted-pill">{{ settings.source === 'runtime' ? '后台控制' : '环境变量' }}</span>
+          </div>
+
+          <div class="chart-block">
+            <div class="chart-copy">
+              <strong>注册名额使用</strong>
+              <span>{{ registrationLimitLabel }}</span>
+            </div>
+            <el-progress :percentage="stats.registrationLimit ? Math.min(100, Math.round((stats.totalUsers / stats.registrationLimit) * 100)) : 0" :show-text="stats.registrationLimit !== null" color="#1f6d5f" />
+          </div>
+
+          <div class="chart-block">
+            <div class="chart-copy">
+              <strong>启用中账号占比</strong>
+              <span>{{ stats.enabledUsers }} / {{ stats.totalUsers || 0 }}</span>
+            </div>
+            <el-progress :percentage="stats.totalUsers ? Math.round((stats.enabledUsers / stats.totalUsers) * 100) : 0" color="#3a8d7f" />
+          </div>
+
+          <div class="chart-block">
+            <div class="chart-copy">
+              <strong>邀请码可用率</strong>
+              <span>{{ stats.inviteCodeCount }} / {{ stats.totalInviteCount || 0 }}</span>
+            </div>
+            <el-progress :percentage="stats.totalInviteCount ? Math.round((stats.inviteCodeCount / stats.totalInviteCount) * 100) : 0" color="#526d8d" />
           </div>
         </section>
       </div>
 
-      <section class="admin-card links-card">
-        <div class="links-head">
+      <section class="panel">
+        <div class="panel-head">
           <div>
-            <p class="card-label">运营入口</p>
-            <h3>流量、下载、部署都从这里进</h3>
+            <p class="eyebrow">邀请码列表</p>
           </div>
-          <span class="head-badge">{{ adminState.status === 'ready' ? '已连接后台接口' : '使用默认入口' }}</span>
         </div>
 
+        <el-empty v-if="!invites.length" description="还没有生成任何邀请码。" />
+        <el-table v-else :data="invites" stripe border>
+          <el-table-column label="邀请码" min-width="180">
+            <template #default="{ row }">
+              <div class="code-cell">
+                <strong>{{ row.code }}</strong>
+                <span>{{ row.label || '未填写备注' }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="使用情况" min-width="130">
+            <template #default="{ row }">{{ formatInviteUsage(row) }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="formatInviteState(row)[1]" round>{{ formatInviteState(row)[0] }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="创建时间" min-width="160">
+            <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+          </el-table-column>
+          <el-table-column label="最近使用" min-width="160">
+            <template #default="{ row }">{{ formatDateTime(row.lastUsedAt) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="220" align="center">
+            <template #default="{ row }">
+              <div class="action-inline">
+                <el-button plain size="small" @click="handleCopyInvite(row.code)">复制</el-button>
+                <el-button v-if="row.editable" :loading="!!busyInviteIds[row.id]" :type="row.isEnabled ? 'danger' : 'primary'" plain size="small" @click="handleToggleInvite(row)">
+                  {{ row.isEnabled ? '停用' : '恢复' }}
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">账号列表</p>
+          </div>
+          <div class="toolbar">
+            <el-input v-model="userSearch" placeholder="搜索用户名或显示名" clearable class="search" />
+            <el-select v-model="userStatusFilter" class="filter">
+              <el-option label="全部状态" value="all" />
+              <el-option label="仅启用中" value="enabled" />
+              <el-option label="仅已停用" value="disabled" />
+            </el-select>
+            <el-button plain @click="loadAdminState({ silent: true })">刷新列表</el-button>
+          </div>
+        </div>
+
+        <el-empty v-if="!users.length" description="还没有本地注册用户。" />
+        <template v-else>
+          <div class="table-hint">当前显示 {{ filteredUsers.length }} / {{ users.length }} 个账号。统计总数会把表里的本地账号全部算进去。</div>
+          <el-table :data="filteredUsers" stripe border>
+            <el-table-column label="显示名" min-width="180">
+              <template #default="{ row }">
+                <div class="code-cell">
+                  <strong>{{ row.displayName }}</strong>
+                  <span>@{{ row.username }}</span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="100" align="center">
+              <template #default="{ row }">
+                <el-tag :type="row.isEnabled ? 'success' : 'danger'" round>{{ row.isEnabled ? '启用中' : '已停用' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="注册时间" min-width="160">
+              <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+            </el-table-column>
+            <el-table-column label="最近登录" min-width="160">
+              <template #default="{ row }">{{ formatDateTime(row.lastLoginAt) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="250" align="center">
+              <template #default="{ row }">
+                <div class="action-inline">
+                  <el-button :loading="!!busyUserIds[row.id]" :type="row.isEnabled ? 'danger' : 'primary'" plain size="small" @click="handleToggleUser(row)">
+                    {{ row.isEnabled ? '停用账号' : '恢复账号' }}
+                  </el-button>
+                  <el-button :loading="!!busyUserIds[row.id]" type="danger" plain size="small" @click="handleDeleteUser(row)">
+                    删除
+                  </el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </section>
+    </template>
+
+    <template v-else-if="activePage === 'overview'">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">运营入口</p>
+          </div>
+        </div>
         <div class="links-grid">
-          <article
-            v-for="item in adminLinks"
-            :key="item.key"
-            class="link-tile"
-          >
+          <article v-for="item in adminLinks" :key="item.key" class="link-card">
             <strong>{{ item.title }}</strong>
             <p>{{ item.description }}</p>
             <a :href="item.href" target="_blank" rel="noreferrer">{{ item.cta }}</a>
           </article>
         </div>
       </section>
-
-      <section class="admin-card tips-card">
-        <p class="card-label">运营建议</p>
-        <ul>
-          <li>静态页面和小脚本尽量继续放在 Pages，省额度也省心。</li>
-          <li>真正吃 Functions 配额的是登录、会话和以后新增的后台接口。</li>
-          <li>如果后面要看更细的下载统计，优先把大文件分发迁到 GitHub Releases 或 R2。</li>
-        </ul>
-      </section>
     </template>
 
     <template v-else>
-      <div class="admin-grid">
-        <section class="admin-card status-card">
-          <p class="card-label">上线状态</p>
-          <h3>把“能不能发出去”拆成几个可检查项</h3>
-          <div class="checklist">
-            <article
-              v-for="item in launchChecklist"
-              :key="item.key"
-              class="check-item"
-            >
-              <div>
+      <div class="two-col">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class=”eyebrow”>上线状态</p>
+            </div>
+          </div>
+          <div class="check-list">
+            <article v-for="item in launchItems" :key="item.key" class="check-card">
+              <div class="check-copy">
                 <strong>{{ item.label }}</strong>
                 <p>{{ item.value }}</p>
               </div>
-              <span :class="['status-badge', item.status]">
-                {{ item.status === 'done' ? '已具备' : '待确认' }}
-              </span>
+              <span :class="['badge', item.status]">{{ item.status === 'done' ? '已具备' : '待确认' }}</span>
             </article>
           </div>
         </section>
 
-        <section class="admin-card status-card">
-          <p class="card-label">流量与统计</p>
-          <h3>{{ analyticsStatus }}</h3>
-          <p>{{ analyticsHint }}</p>
-          <div class="status-list">
-            <p><span>线上主页</span><strong>{{ appHomepage }}</strong></p>
-            <p><span>页面统计脚本</span><strong>{{ analyticsRuntimeDetected ? '当前页面已探测到' : '当前页面未探测到' }}</strong></p>
-            <p><span>Pages 入口</span><strong>{{ adminState.dashboards.pagesProject ? '已配置' : '建议补充' }}</strong></p>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">下一步建议</p>
+            </div>
           </div>
+          <ul class="todo-list">
+            <li v-for="item in nextStepItems" :key="item">{{ item }}</li>
+          </ul>
         </section>
       </div>
-
-      <section class="admin-card links-card">
-        <div class="links-head">
-          <div>
-            <p class="card-label">分发策略</p>
-            <h3>把当前架构和后续扩展路线讲明白</h3>
-          </div>
-          <span class="head-badge">管理员后台第二页</span>
-        </div>
-
-        <div class="strategy-grid">
-          <article
-            v-for="item in strategyCards"
-            :key="item.key"
-            class="strategy-tile"
-          >
-            <strong>{{ item.title }}</strong>
-            <p>{{ item.description }}</p>
-            <span>{{ item.detail }}</span>
-          </article>
-        </div>
-      </section>
-
-      <section class="admin-card tips-card">
-        <p class="card-label">下一步建议</p>
-        <ul>
-          <li
-            v-for="item in nextStepItems"
-            :key="item"
-          >
-            {{ item }}
-          </li>
-        </ul>
-      </section>
     </template>
   </section>
 </template>
 
 <style scoped>
-.admin-stage {
-  display: grid;
-  gap: 18px;
-}
-
-.admin-hero,
-.admin-card {
-  border-radius: 28px;
-  border: 1px solid rgba(18, 40, 37, 0.08);
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 20px 40px rgba(21, 37, 34, 0.08);
-}
-
-.admin-hero {
-  padding: 26px;
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  align-items: flex-start;
-  background:
-    radial-gradient(circle at top right, rgba(47, 117, 105, 0.14), transparent 22%),
-    linear-gradient(160deg, rgba(255, 255, 255, 0.94) 0%, rgba(244, 247, 245, 0.98) 100%);
-}
-
-.admin-hero-side {
-  display: grid;
-  gap: 14px;
-  justify-items: end;
-}
-
-.admin-label,
-.card-label {
-  margin: 0;
-  color: #8a7355;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.admin-hero h2,
-.admin-card h3 {
-  margin: 10px 0 0;
-  color: #162b28;
-}
-
-.admin-hero h2 {
-  font-size: 34px;
-  line-height: 1.12;
-}
-
-.admin-copy,
-.admin-card p,
-.link-tile p,
-.strategy-tile p {
-  margin: 12px 0 0;
-  color: #647673;
-  line-height: 1.8;
-}
-
-.admin-owner {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 20px;
-  background: rgba(18, 40, 37, 0.04);
-  min-width: 220px;
-}
-
-.admin-owner img {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.admin-owner strong {
-  display: block;
-  color: #162b28;
-}
-
-.admin-owner span {
-  color: #6f817d;
-  font-size: 13px;
-}
-
-.view-switch {
-  display: inline-flex;
-  padding: 4px;
-  gap: 6px;
-  border-radius: 999px;
-  background: rgba(18, 40, 37, 0.05);
-  border: 1px solid rgba(18, 40, 37, 0.06);
-}
-
-.view-switch-button {
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: #5b6e6a;
-  font-weight: 700;
-  font-size: 13px;
-  padding: 10px 16px;
-  cursor: pointer;
-}
-
-.view-switch-button.active {
-  background: #14302c;
-  color: #f5f7f6;
-}
-
-.admin-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-}
-
-.admin-card {
-  padding: 22px;
-}
-
-.meta-pills {
-  margin-top: 16px;
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.meta-pills span,
-.head-badge,
-.status-badge {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(18, 40, 37, 0.06);
-  color: #586d69;
-  font-size: 12px;
-}
-
-.status-badge.done {
-  background: rgba(31, 109, 95, 0.12);
-  color: #1f6d5f;
-}
-
-.status-badge.todo {
-  background: rgba(196, 123, 54, 0.16);
-  color: #9f5e13;
-}
-
-.status-list,
-.checklist {
-  margin-top: 16px;
-  display: grid;
-  gap: 10px;
-}
-
-.status-list p,
-.check-item {
-  margin: 0;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.status-list span {
-  color: #6f817d;
-}
-
-.status-list strong,
-.check-item strong,
-.strategy-tile strong,
-.link-tile strong {
-  color: #162b28;
-}
-
-.status-list strong {
-  font-size: 13px;
-}
-
-.check-item {
-  padding: 14px 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(18, 40, 37, 0.06);
-  background: rgba(255, 255, 255, 0.75);
-}
-
-.check-item p {
-  margin: 6px 0 0;
-  font-size: 13px;
-}
-
-.links-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
-
-.links-grid,
-.strategy-grid {
-  margin-top: 18px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.link-tile,
-.strategy-tile {
-  padding: 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(18, 40, 37, 0.06);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 247, 245, 0.98) 100%);
-}
-
-.link-tile strong,
-.strategy-tile strong {
-  font-size: 18px;
-}
-
-.link-tile a {
-  display: inline-flex;
-  margin-top: 14px;
-  color: #1f6d5f;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.strategy-tile span {
-  display: inline-flex;
-  margin-top: 14px;
-  color: #586d69;
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.tips-card ul {
-  margin: 14px 0 0;
-  padding-left: 18px;
-  color: #647673;
-  line-height: 1.8;
-}
-
-@media (max-width: 960px) {
-  .admin-grid,
-  .links-grid,
-  .strategy-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .admin-hero {
-    flex-direction: column;
-    padding: 18px;
-  }
-
-  .admin-hero-side {
-    width: 100%;
-    justify-items: stretch;
-  }
-
-  .admin-card {
-    padding: 18px;
-  }
-
-  .admin-owner {
-    width: 100%;
-  }
-
-  .view-switch {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .view-switch-button {
-    flex: 1;
-  }
-}
+.admin-stage { display: grid; gap: 18px; }
+.hero-card, .panel, .metric-card { border-radius: 26px; border: 1px solid rgba(18, 40, 37, 0.08); background: rgba(255, 255, 255, 0.84); box-shadow: 0 20px 40px rgba(21, 37, 34, 0.08); }
+.hero-card { padding: 24px; display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+.hero-copy, .check-copy { min-width: 0; }
+.hero-copy h2, .panel h3, .metric-card strong, .link-card strong { color: #162b28; }
+.hero-copy h2 { margin: 10px 0 0; font-size: 34px; line-height: 1.12; }
+.hero-copy p, .panel p, .metric-card p, .link-card p, .table-hint, .todo-list { color: #647673; }
+.hero-side { display: grid; gap: 14px; justify-items: end; }
+.owner-card { min-width: 220px; padding: 14px 16px; border-radius: 18px; background: rgba(18, 40, 37, 0.04); display: grid; gap: 4px; }
+.owner-card span, .code-cell span { color: #6f817d; font-size: 13px; }
+.tabs { display: inline-flex; gap: 6px; padding: 4px; border-radius: 999px; background: rgba(18, 40, 37, 0.05); }
+.tabs button { border: none; border-radius: 999px; padding: 10px 16px; background: transparent; color: #5b6e6a; font-weight: 700; cursor: pointer; }
+.tabs button.active { background: #14302c; color: #f5f7f6; }
+.eyebrow { margin: 0; color: #8a7355; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; }
+.metrics-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.metric-card { padding: 20px; display: grid; gap: 6px; }
+.metric-card span { color: #6f817d; font-size: 13px; }
+.metric-card strong { font-size: 36px; line-height: 1; }
+.two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.panel { padding: 22px; }
+.panel-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.muted-pill, .badge { padding: 8px 12px; border-radius: 999px; background: rgba(18, 40, 37, 0.06); color: #586d69; font-size: 12px; white-space: nowrap; }
+.form-grid { margin-top: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.form-grid label { display: grid; gap: 8px; }
+.form-grid label span { color: #405451; font-size: 14px; font-weight: 700; }
+.action-row, .toolbar, .action-inline { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.divider { margin: 22px 0; height: 1px; background: rgba(18, 40, 37, 0.08); }
+.chart-block { margin-top: 18px; padding: 16px; border-radius: 18px; background: rgba(18, 40, 37, 0.04); }
+.chart-copy { margin-bottom: 10px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mini-stats { display: flex; flex-wrap: wrap; gap: 8px; }
+.mini-stats span { padding: 7px 10px; border-radius: 999px; background: rgba(18, 40, 37, 0.05); color: #647673; font-size: 12px; }
+.links-grid { margin-top: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.link-card { padding: 18px; border-radius: 18px; border: 1px solid rgba(18, 40, 37, 0.06); background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 247, 245, 0.98) 100%); }
+.link-card a { display: inline-flex; margin-top: 12px; color: #1f6d5f; font-weight: 700; text-decoration: none; }
+.search { width: 240px; }
+.filter { width: 140px; }
+.table-hint { margin: 14px 0; }
+.code-cell { display: grid; gap: 4px; }
+.check-list { margin-top: 16px; display: grid; gap: 10px; }
+.check-card { padding: 14px 16px; border-radius: 18px; border: 1px solid rgba(18, 40, 37, 0.06); background: rgba(255, 255, 255, 0.75); display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.check-card p { margin: 6px 0 0; font-size: 13px; line-height: 1.7; word-break: break-word; }
+.badge.done { background: rgba(31, 109, 95, 0.12); color: #1f6d5f; }
+.badge.todo { background: rgba(196, 123, 54, 0.16); color: #9f5e13; }
+.todo-list { margin: 14px 0 0; padding-left: 18px; line-height: 1.8; }
+@media (max-width: 1180px) { .metrics-grid, .two-col, .links-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px) { .metrics-grid, .two-col, .links-grid, .form-grid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .hero-card { flex-direction: column; } .hero-side { width: 100%; justify-items: stretch; } .tabs { width: 100%; display: grid; grid-template-columns: 1fr; } .search, .filter { width: 100%; } }
 </style>
