@@ -194,13 +194,25 @@ $payload = [ordered]@{
 }
 
 $outputPath = Join-Path ([Environment]::GetFolderPath('Desktop')) 'andeshuang-detection.json'
-$payload | ConvertTo-Json -Depth 6 | Set-Content -Path $outputPath -Encoding UTF8
+
+try {
+  $payload | ConvertTo-Json -Depth 6 | Set-Content -Path $outputPath -Encoding UTF8
+  Write-Host ''
+  Write-Host '检测完成，结果文件已保存到桌面：' -ForegroundColor Green
+  Write-Host $outputPath -ForegroundColor Cyan
+  Write-Host ''
+  Write-Host '把这个 JSON 文件导回安的爽页面，就能自动跳过已安装的软件。' -ForegroundColor Yellow
+} catch {
+  Write-Host ''
+  Write-Host '保存文件失败！' -ForegroundColor Red
+  Write-Host "错误信息：$($_.Exception.Message)" -ForegroundColor Red
+  Write-Host ''
+  Write-Host '请尝试以管理员身份运行，或者检查桌面是否有写入权限。' -ForegroundColor Yellow
+}
 
 Write-Host ''
-Write-Host '检测完成，结果文件已保存到桌面：' -ForegroundColor Green
-Write-Host $outputPath -ForegroundColor Cyan
-Write-Host ''
-Write-Host '把这个 JSON 文件导回安的爽页面，就能自动跳过已安装的软件。' -ForegroundColor Yellow
+Write-Host '按任意键退出...' -ForegroundColor Gray
+$null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
 Pause`
 }
 
