@@ -4,15 +4,34 @@ import { ElMessage } from 'element-plus'
 import AdminDashboard from './components/AdminDashboard.vue'
 import EnvironmentSelector from './components/EnvironmentSelector.vue'
 import { environments } from './data/environments.js'
-import { beginLinuxDOLogin, fetchSession, logoutSession } from './utils/sessionApi.js'
+import {
+  beginLinuxDOLogin,
+  fetchSession,
+  loginLocalAccount,
+  logoutSession,
+  registerLocalAccount
+} from './utils/sessionApi.js'
 
 const selectedPackages = ref([])
 const activeView = ref('console')
+const entryMode = ref('linuxdo')
 const showLoginGuide = ref(false)
 const sessionUser = ref(null)
 const sessionIsAdmin = ref(false)
 const authStatus = ref('loading')
 const authErrorCode = ref('')
+const authActionPending = ref(false)
+const localAuthError = ref('')
+const localLoginForm = ref({
+  username: '',
+  password: ''
+})
+const localRegisterForm = ref({
+  username: '',
+  displayName: '',
+  password: '',
+  confirmPassword: ''
+})
 const dashboardState = ref({
   selectedCount: 0,
   selectedPendingCount: 0,
@@ -33,6 +52,7 @@ const runtimeStatus = computed(() =>
 const installerLabel = computed(() =>
   dashboardState.value.useChocolatey ? 'Chocolatey' : 'Scoop'
 )
+const currentUserLabel = computed(() => sessionUser.value?.name || sessionUser.value?.username || '')
 const authErrorMessage = computed(() => {
   if (!authErrorCode.value) return ''
 
@@ -46,6 +66,16 @@ const authErrorMessage = computed(() => {
 
   return messages[authErrorCode.value] || '登录失败，请重新尝试。'
 })
+const entryModeTitle = computed(() => ({
+  linuxdo: '使用 LinuxDO 登录',
+  localLogin: '使用内测账号登录',
+  localRegister: '创建内测账号'
+}[entryMode.value] || '使用 LinuxDO 登录'))
+const entryModeDescription = computed(() => ({
+  linuxdo: '登录后才能进入控制台。v1 保持轻量，不保存用户数据库，只使用安全 Cookie 维持会话。',
+  localLogin: '如果你的同学没有 LinuxDO，可以直接用内测账号登录后体验控制台。',
+  localRegister: '内测阶段支持你自己注册一个测试账号。注册成功后会自动进入控制台。'
+}[entryMode.value] || '登录后才能进入控制台。'))
 
 onMounted(() => {
   if (typeof window !== 'undefined') {
@@ -70,7 +100,13 @@ const handleDashboardUpdate = (payload) => {
 }
 
 const handleLinuxDOLogin = () => {
+  localAuthError.value = ''
   beginLinuxDOLogin()
+}
+
+const switchEntryMode = (mode) => {
+  entryMode.value = mode
+  localAuthError.value = ''
 }
 
 const handleLogout = async () => {
@@ -81,9 +117,73 @@ const handleLogout = async () => {
     authStatus.value = 'unauthenticated'
     selectedPackages.value = []
     activeView.value = 'console'
+    localAuthError.value = ''
     ElMessage.success('已退出登录')
   } catch {
     ElMessage.error('退出登录失败，请稍后重试')
+  }
+}
+
+const handleLocalLogin = async () => {
+  localAuthError.value = ''
+
+  if (!localLoginForm.value.username.trim() || !localLoginForm.value.password) {
+    localAuthError.value = '请先填写用户名和密码。'
+    return
+  }
+
+  authActionPending.value = true
+
+  try {
+    await loginLocalAccount({
+      username: localLoginForm.value.username.trim(),
+      password: localLoginForm.value.password
+    })
+
+    clearAuthForms()
+    await loadSession()
+    ElMessage.success('登录成功，正在进入控制台')
+  } catch (error) {
+    localAuthError.value = formatLocalAuthError(error)
+  } finally {
+    authActionPending.value = false
+  }
+}
+
+const handleLocalRegister = async () => {
+  localAuthError.value = ''
+
+  const username = localRegisterForm.value.username.trim()
+  const displayName = localRegisterForm.value.displayName.trim()
+  const password = localRegisterForm.value.password
+  const confirmPassword = localRegisterForm.value.confirmPassword
+
+  if (!username || !displayName || !password || !confirmPassword) {
+    localAuthError.value = '请先把用户名、显示名、密码和确认密码填完整。'
+    return
+  }
+
+  if (password !== confirmPassword) {
+    localAuthError.value = '两次输入的密码不一致，请重新确认。'
+    return
+  }
+
+  authActionPending.value = true
+
+  try {
+    await registerLocalAccount({
+      username,
+      displayName,
+      password
+    })
+
+    clearAuthForms()
+    await loadSession()
+    ElMessage.success('注册成功，已经自动进入控制台')
+  } catch (error) {
+    localAuthError.value = formatLocalAuthError(error)
+  } finally {
+    authActionPending.value = false
   }
 }
 
@@ -99,6 +199,7 @@ async function loadSession() {
       if (!payload.isAdmin && activeView.value === 'admin') {
         activeView.value = 'console'
       }
+      localAuthError.value = ''
       authStatus.value = 'authenticated'
       return
     }
@@ -114,6 +215,38 @@ async function loadSession() {
       authErrorCode.value = 'session_unavailable'
     }
   }
+}
+
+function clearAuthForms() {
+  localLoginForm.value = {
+    username: '',
+    password: ''
+  }
+  localRegisterForm.value = {
+    username: '',
+    displayName: '',
+    password: '',
+    confirmPassword: ''
+  }
+}
+
+function formatLocalAuthError(error) {
+  const code = error?.code || error?.message || ''
+  const messages = {
+    local_auth_unavailable: '当前环境还没有启用内测账号能力，请稍后再试。',
+    invalid_payload: '提交内容格式不正确，请重新填写。',
+    invalid_username: '用户名格式不合法，建议使用 3 到 24 位字母、数字或下划线。',
+    invalid_display_name: '显示名长度不合适，请换一个更短一点的名字。',
+    invalid_password: '密码长度需要在 8 到 128 位之间。',
+    missing_credentials: '请先输入用户名和密码。',
+    username_taken: '这个用户名已经被注册了，换一个试试。',
+    invalid_credentials: '用户名或密码不正确，请重新确认。',
+    register_failed: '注册失败，账号没有创建成功，请稍后再试。',
+    session_unavailable: '当前环境缺少会话密钥，暂时无法使用内测账号功能。',
+    database_error: '账号服务暂时不可用，请稍后再试。'
+  }
+
+  return messages[code] || '内测账号操作失败，请稍后再试。'
 }
 </script>
 
@@ -160,8 +293,32 @@ async function loadSession() {
 
         <div class="entry-actions-card">
           <p class="entry-side-label">进入方式</p>
-          <h2>使用 LinuxDO 登录</h2>
-          <p>登录后才能进入控制台。v1 保持轻量，不保存用户数据库，只使用安全 Cookie 维持会话。</p>
+          <div class="entry-mode-tabs">
+            <button
+              type="button"
+              :class="['entry-mode-tab', { active: entryMode === 'linuxdo' }]"
+              @click="switchEntryMode('linuxdo')"
+            >
+              LinuxDO 登录
+            </button>
+            <button
+              type="button"
+              :class="['entry-mode-tab', { active: entryMode === 'localLogin' }]"
+              @click="switchEntryMode('localLogin')"
+            >
+              内测账号登录
+            </button>
+            <button
+              type="button"
+              :class="['entry-mode-tab', { active: entryMode === 'localRegister' }]"
+              @click="switchEntryMode('localRegister')"
+            >
+              内测账号注册
+            </button>
+          </div>
+
+          <h2>{{ entryModeTitle }}</h2>
+          <p>{{ entryModeDescription }}</p>
 
           <el-alert
             v-if="authErrorMessage"
@@ -171,13 +328,99 @@ async function loadSession() {
             class="entry-alert"
           />
 
-          <div class="entry-action-list">
+          <el-alert
+            v-if="localAuthError"
+            :title="localAuthError"
+            type="error"
+            :closable="false"
+            class="entry-alert"
+          />
+
+          <div v-if="entryMode === 'linuxdo'" class="entry-action-list">
             <el-button type="primary" class="entry-main-button" @click="handleLinuxDOLogin">
               使用 LinuxDO 登录
             </el-button>
             <el-button plain class="entry-main-button" @click="showLoginGuide = true">
               查看接入说明
             </el-button>
+          </div>
+
+          <div v-else-if="entryMode === 'localLogin'" class="entry-form">
+            <el-input
+              v-model.trim="localLoginForm.username"
+              placeholder="用户名"
+              autocomplete="username"
+              size="large"
+            />
+            <el-input
+              v-model="localLoginForm.password"
+              type="password"
+              show-password
+              placeholder="密码"
+              autocomplete="current-password"
+              size="large"
+              @keyup.enter="handleLocalLogin"
+            />
+
+            <div class="entry-action-list">
+              <el-button
+                type="primary"
+                class="entry-main-button"
+                :loading="authActionPending"
+                @click="handleLocalLogin"
+              >
+                使用内测账号登录
+              </el-button>
+              <el-button plain class="entry-main-button" @click="switchEntryMode('localRegister')">
+                没有账号？去注册
+              </el-button>
+            </div>
+          </div>
+
+          <div v-else class="entry-form">
+            <el-input
+              v-model.trim="localRegisterForm.username"
+              placeholder="用户名（建议字母、数字、下划线）"
+              autocomplete="username"
+              size="large"
+            />
+            <el-input
+              v-model.trim="localRegisterForm.displayName"
+              placeholder="显示名"
+              autocomplete="nickname"
+              size="large"
+            />
+            <el-input
+              v-model="localRegisterForm.password"
+              type="password"
+              show-password
+              placeholder="密码"
+              autocomplete="new-password"
+              size="large"
+            />
+            <el-input
+              v-model="localRegisterForm.confirmPassword"
+              type="password"
+              show-password
+              placeholder="确认密码"
+              autocomplete="new-password"
+              size="large"
+              @keyup.enter="handleLocalRegister"
+            />
+
+            <div class="entry-action-list">
+              <el-button
+                type="primary"
+                class="entry-main-button"
+                :loading="authActionPending"
+                @click="handleLocalRegister"
+              >
+                创建内测账号
+              </el-button>
+              <el-button plain class="entry-main-button" @click="switchEntryMode('localLogin')">
+                已有账号？去登录
+              </el-button>
+            </div>
           </div>
 
           <div class="entry-notes">
@@ -552,8 +795,39 @@ async function loadSession() {
   line-height: 1.8;
 }
 
+.entry-mode-tabs {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(18, 40, 37, 0.05);
+  border: 1px solid rgba(18, 40, 37, 0.06);
+}
+
+.entry-mode-tab {
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #5c706d;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 10px 14px;
+}
+
+.entry-mode-tab.active {
+  background: #173f38;
+  color: #f5f7f6;
+}
+
 .entry-alert {
   margin-top: 18px;
+}
+
+.entry-form {
+  margin-top: 22px;
+  display: grid;
+  gap: 12px;
 }
 
 .entry-action-list {
@@ -998,6 +1272,12 @@ async function loadSession() {
   }
 
   .entry-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .entry-mode-tabs {
+    width: 100%;
+    display: grid;
     grid-template-columns: 1fr;
   }
 

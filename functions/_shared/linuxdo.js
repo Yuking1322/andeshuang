@@ -98,7 +98,8 @@ function mapLinuxDOUser(payload) {
     username: payload.username || payload.preferred_username || payload.name || '',
     name: payload.name || payload.username || '',
     avatar: buildAvatarUrl(avatarTemplate),
-    trustLevel: payload.trust_level ?? payload.trustLevel ?? null
+    trustLevel: payload.trust_level ?? payload.trustLevel ?? null,
+    provider: 'linuxdo'
   }
 }
 

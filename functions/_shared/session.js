@@ -29,7 +29,7 @@ export function clearOAuthStateCookie(secure = true) {
 
 export async function createSessionCookie(user, secret, secure = true) {
   const payload = {
-    user,
+    user: normalizeSessionUser(user),
     expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000
   }
 
@@ -69,9 +69,23 @@ async function verifyPayload(token, secret) {
   try {
     const payload = JSON.parse(base64UrlDecode(encodedPayload))
     if (!payload?.expiresAt || payload.expiresAt < Date.now()) return null
+    if (payload.user) {
+      payload.user = normalizeSessionUser(payload.user)
+    }
     return payload
   } catch {
     return null
+  }
+}
+
+function normalizeSessionUser(user) {
+  return {
+    id: String(user?.id || ''),
+    username: String(user?.username || '').trim(),
+    name: String(user?.name || user?.username || '').trim(),
+    avatar: String(user?.avatar || '').trim(),
+    trustLevel: user?.trustLevel ?? null,
+    provider: String(user?.provider || 'linuxdo').trim() || 'linuxdo'
   }
 }
 
