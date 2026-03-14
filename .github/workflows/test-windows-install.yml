@@ -80,10 +80,10 @@ jobs:
           echo "=== Verifying uv ==="
           $uvPath = "$env:USERPROFILE\.local\bin\uv.exe"
           if (Test-Path $uvPath) {
-            echo "✓ uv installed at: $uvPath"
+            echo "[OK] uv installed at: $uvPath"
             & $uvPath --version
           } else {
-            echo "✗ uv not found"
+            echo "[FAIL] uv not found"
             exit 1
           }
         shell: powershell
@@ -98,16 +98,16 @@ jobs:
           # 检查 uv 管理的 Python
           $uvPython = "$env:USERPROFILE\.local\bin\python.exe"
           if (Test-Path $uvPython) {
-            echo "✓ Python installed via uv at: $uvPython"
+            echo "[OK] Python installed via uv at: $uvPython"
             & $uvPython --version
           } else {
             # 检查系统 Python
             $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
             if ($pythonCmd) {
-              echo "✓ Python found in PATH: $($pythonCmd.Source)"
+              echo "[OK] Python found in PATH: $($pythonCmd.Source)"
               python --version
             } else {
-              echo "✗ Python not found"
+              echo "[FAIL] Python not found"
               exit 1
             }
           }
@@ -122,17 +122,17 @@ jobs:
 
           $pipxCmd = Get-Command pipx -ErrorAction SilentlyContinue
           if ($pipxCmd) {
-            echo "✓ pipx found at: $($pipxCmd.Source)"
+            echo "[OK] pipx found at: $($pipxCmd.Source)"
             pipx --version
           } else {
-            echo "✗ pipx not found in PATH"
+            echo "[FAIL] pipx not found in PATH"
 
             # 检查是否安装但未加入 PATH
             $pipxPath = "$env:USERPROFILE\.local\bin\pipx.exe"
             if (Test-Path $pipxPath) {
-              echo "⚠ pipx installed but not in PATH: $pipxPath"
+              echo "[WARN] pipx installed but not in PATH: $pipxPath"
             } else {
-              echo "✗ pipx not installed"
+              echo "[FAIL] pipx not installed"
               exit 1
             }
           }
@@ -147,14 +147,14 @@ jobs:
           if (Test-Path $uvPython) {
             $result = & $uvPython -m pip list | Select-String "jupyterlab"
             if ($result) {
-              echo "✓ JupyterLab installed:"
+              echo "[OK] JupyterLab installed:"
               echo $result
             } else {
-              echo "✗ JupyterLab not found in pip list"
+              echo "[FAIL] JupyterLab not found in pip list"
               exit 1
             }
           } else {
-            echo "⚠ Cannot verify JupyterLab (uv Python not found)"
+            echo "[WARN] Cannot verify JupyterLab (uv Python not found)"
           }
         shell: powershell
 

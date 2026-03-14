@@ -1,0 +1,99 @@
+﻿2026-03-14T15:45:55.3542532Z ##[group]Run echo "=== Testing Python Workbench Installation ==="
+2026-03-14T15:45:55.3543112Z [36;1mecho "=== Testing Python Workbench Installation ==="[0m
+2026-03-14T15:45:55.3543404Z [36;1m[0m
+2026-03-14T15:45:55.3543577Z [36;1m# 复制脚本到临时目录[0m
+2026-03-14T15:45:55.3543855Z [36;1m$scriptPath = "$env:TEMP\python-workbench-test.bat"[0m
+2026-03-14T15:45:55.3544294Z [36;1mCopy-Item "public\downloads\windows\python-workbench.bat" $scriptPath[0m
+2026-03-14T15:45:55.3544649Z [36;1m[0m
+2026-03-14T15:45:55.3544841Z [36;1m# 检查文件编码（前3字节应该是 UTF-8 BOM）[0m
+2026-03-14T15:45:55.3545133Z [36;1m$bytes = [System.IO.File]::ReadAllBytes($scriptPath)[0m
+2026-03-14T15:45:55.3545486Z [36;1m$bom = "{0:X2} {1:X2} {2:X2}" -f $bytes[0], $bytes[1], $bytes[2][0m
+2026-03-14T15:45:55.3545844Z [36;1mecho "File BOM: $bom (should be EF BB BF for UTF-8)"[0m
+2026-03-14T15:45:55.3546131Z [36;1m[0m
+2026-03-14T15:45:55.3546279Z [36;1mif ($bom -ne "EF BB BF") {[0m
+2026-03-14T15:45:55.3546564Z [36;1m  echo "ERROR: Script file does not have UTF-8 BOM!"[0m
+2026-03-14T15:45:55.3546872Z [36;1m  exit 1[0m
+2026-03-14T15:45:55.3547024Z [36;1m}[0m
+2026-03-14T15:45:55.3547150Z [36;1m[0m
+2026-03-14T15:45:55.3547283Z [36;1mecho ""[0m
+2026-03-14T15:45:55.3547482Z [36;1mecho "=== Running Installation Script ==="[0m
+2026-03-14T15:45:55.3547737Z [36;1m[0m
+2026-03-14T15:45:55.3547882Z [36;1m# 运行脚本（使用 cmd /c 确保正确解析）[0m
+2026-03-14T15:45:55.3548089Z [36;1mcmd /c $scriptPath[0m
+2026-03-14T15:45:55.3548272Z [36;1m[0m
+2026-03-14T15:45:55.3548427Z [36;1m$exitCode = $LASTEXITCODE[0m
+2026-03-14T15:45:55.3548630Z [36;1mecho ""[0m
+2026-03-14T15:45:55.3548801Z [36;1mecho "Script exit code: $exitCode"[0m
+2026-03-14T15:45:55.3549020Z [36;1m[0m
+2026-03-14T15:45:55.3549143Z [36;1m# 检查日志文件[0m
+2026-03-14T15:45:55.3550037Z [36;1m$logFiles = Get-ChildItem "$env:TEMP" -Filter "andeshuang-install-*.log" | Sort-Object LastWriteTime -Descending | Select-Object -First 1[0m
+2026-03-14T15:45:55.3550697Z [36;1m[0m
+2026-03-14T15:45:55.3550849Z [36;1mif ($logFiles) {[0m
+2026-03-14T15:45:55.3551031Z [36;1m  echo ""[0m
+2026-03-14T15:45:55.3551207Z [36;1m  echo "=== Installation Log ==="[0m
+2026-03-14T15:45:55.3551475Z [36;1m  Get-Content $logFiles.FullName[0m
+2026-03-14T15:45:55.3551725Z [36;1m} else {[0m
+2026-03-14T15:45:55.3551895Z [36;1m  echo "WARNING: No log file found"[0m
+2026-03-14T15:45:55.3552117Z [36;1m}[0m
+2026-03-14T15:45:55.3618783Z shell: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.EXE -command ". '{0}'"
+2026-03-14T15:45:55.3619203Z ##[endgroup]
+2026-03-14T15:45:55.7737982Z === Testing Python Workbench Installation ===
+2026-03-14T15:45:55.8483921Z File BOM: EF BB BF (should be EF BB BF for UTF-8)
+2026-03-14T15:45:55.8518385Z 
+2026-03-14T15:45:55.8521121Z === Running Installation Script ===
+2026-03-14T15:45:55.8875691Z 
+2026-03-14T15:45:55.8884607Z The system cannot find the path specified.
+2026-03-14T15:45:55.8888435Z The system cannot find the path specified.
+2026-03-14T15:45:55.8892247Z The system cannot find the path specified.
+2026-03-14T15:45:55.8896140Z The system cannot find the path specified.
+2026-03-14T15:45:55.8928178Z 
+2026-03-14T15:45:55.8932072Z =====================================
+2026-03-14T15:45:55.8935383Z      安的爽 - 开发环境一键安装
+2026-03-14T15:45:55.8939297Z =====================================
+2026-03-14T15:45:55.8943110Z 日志文件：C:\Users\RUNNER~1\AppData\Local\Temp\andeshuang-install-Sat03/4/-154555.log
+2026-03-14T15:45:55.8973306Z 
+2026-03-14T15:45:55.8977190Z [开始] 执行 安装流程...
+2026-03-14T15:45:55.8980908Z The system cannot find the path specified.
+2026-03-14T15:45:55.9010711Z 
+2026-03-14T15:45:55.9014555Z [安装] uv
+2026-03-14T15:45:55.9018707Z The system cannot find the path specified.
+2026-03-14T15:45:55.9021828Z [提示] uv 使用官方安装脚本，安装后可直接管理 Python 与依赖。
+2026-03-14T15:45:55.9025456Z The system cannot find the path specified.
+2026-03-14T15:45:55.9032511Z The system cannot find the path specified.
+2026-03-14T15:45:55.9039040Z [成功] uv
+2026-03-14T15:45:55.9043124Z The system cannot find the path specified.
+2026-03-14T15:45:55.9073512Z 
+2026-03-14T15:45:55.9077895Z [安装] Python · 3.13 推荐
+2026-03-14T15:45:55.9081606Z The system cannot find the path specified.
+2026-03-14T15:45:55.9085234Z [提示] Python 版本通过 uv 管理，适合需要多版本切换的开发环境。
+2026-03-14T15:45:55.9089097Z The system cannot find the path specified.
+2026-03-14T15:45:55.9098486Z The system cannot find the path specified.
+2026-03-14T15:45:55.9104384Z The system cannot find the path specified.
+2026-03-14T15:45:55.9110629Z [成功] Python · 3.13 推荐
+2026-03-14T15:45:55.9112513Z The system cannot find the path specified.
+2026-03-14T15:45:55.9143912Z 
+2026-03-14T15:45:55.9147529Z [安装] pipx
+2026-03-14T15:45:55.9151095Z The system cannot find the path specified.
+2026-03-14T15:45:55.9155028Z [提示] 需要当前系统已经能调用 python。
+2026-03-14T15:45:55.9158519Z The system cannot find the path specified.
+2026-03-14T15:45:55.9166195Z [配置] 正在设置 pip 镜像...
+2026-03-14T15:45:55.9168240Z The system cannot find the path specified.
+2026-03-14T15:45:55.9170355Z The system cannot find the path specified.
+2026-03-14T15:45:55.9177255Z The system cannot find the path specified.
+2026-03-14T15:45:55.9183321Z The system cannot find the path specified.
+2026-03-14T15:45:55.9189648Z [成功] pipx
+2026-03-14T15:45:55.9191698Z The system cannot find the path specified.
+2026-03-14T15:45:55.9222664Z 
+2026-03-14T15:45:55.9226174Z [安装] JupyterLab
+2026-03-14T15:45:55.9229839Z The system cannot find the path specified.
+2026-03-14T15:45:55.9240976Z The system cannot find the path specified.
+2026-03-14T15:45:55.9247291Z [成功] JupyterLab
+2026-03-14T15:45:55.9249786Z The system cannot find the path specified.
+2026-03-14T15:45:55.9284145Z 
+2026-03-14T15:45:55.9289104Z =====================================
+2026-03-14T15:45:55.9290228Z 安装流程已完成。
+2026-03-14T15:45:55.9291728Z 日志路径：C:\Users\RUNNER~1\AppData\Local\Temp\andeshuang-install-Sat03/4/-154555.log
+2026-03-14T15:45:55.9292611Z =====================================
+2026-03-14T15:45:55.9328965Z 
+2026-03-14T15:45:55.9340474Z Script exit code: 0
+2026-03-14T15:45:55.9439818Z WARNING: No log file found

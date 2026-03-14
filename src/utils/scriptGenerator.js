@@ -79,8 +79,9 @@ title 安的爽 - ${scriptTitle}
 :: 包管理器: ${managerLabel}
 :: 模式: ${operationText}
 
-set "LOGFILE=%~dp0andeshuang-${logPrefix}-%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%-%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%.log"
-set "LOGFILE=%LOGFILE: =0%"
+:: 使用 PowerShell 生成可靠的时间戳
+for /f "delims=" %%i in ('powershell -NoProfile -Command "Get-Date -Format 'yyyyMMdd-HHmmss'"') do set "TIMESTAMP=%%i"
+set "LOGFILE=%~dp0andeshuang-${logPrefix}-%TIMESTAMP%.log"
 set /a FAILED_COUNT=0
 set "PIP_MIRROR_READY=0"
 

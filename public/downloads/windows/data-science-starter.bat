@@ -6,8 +6,9 @@ title 安的爽 - 开发环境一键安装
 :: 包管理器: Chocolatey
 :: 模式: 安装
 
-set "LOGFILE=%~dp0andeshuang-install-%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%-%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%.log"
-set "LOGFILE=%LOGFILE: =0%"
+:: 使用 PowerShell 生成可靠的时间戳
+for /f "delims=" %%i in ('powershell -NoProfile -Command "Get-Date -Format 'yyyyMMdd-HHmmss'"') do set "TIMESTAMP=%%i"
+set "LOGFILE=%~dp0andeshuang-install-%TIMESTAMP%.log"
 set /a FAILED_COUNT=0
 set "PIP_MIRROR_READY=0"
 
