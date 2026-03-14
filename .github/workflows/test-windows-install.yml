@@ -1,0 +1,167 @@
+name: Test Windows Install Scripts
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/utils/scriptGenerator.js'
+      - 'src/utils/detectionScript.js'
+      - 'src/data/environments.js'
+      - 'scripts/generate-downloads.mjs'
+      - 'public/downloads/windows/**'
+      - '.github/workflows/test-windows-install.yml'
+  workflow_dispatch:
+
+jobs:
+  test-python-workbench:
+    name: Test Python Workbench Installation
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Display system info
+        run: |
+          echo "=== System Information ==="
+          systeminfo | findstr /B /C:"OS Name" /C:"OS Version"
+          echo ""
+          echo "=== PowerShell Version ==="
+          $PSVersionTable.PSVersion
+          echo ""
+          echo "=== Current User ==="
+          whoami
+        shell: powershell
+
+      - name: Test Python Workbench Script
+        run: |
+          echo "=== Testing Python Workbench Installation ==="
+
+          # 复制脚本到临时目录
+          $scriptPath = "$env:TEMP\python-workbench-test.bat"
+          Copy-Item "public\downloads\windows\python-workbench.bat" $scriptPath
+
+          # 检查文件编码（前3字节应该是 UTF-8 BOM）
+          $bytes = [System.IO.File]::ReadAllBytes($scriptPath)
+          $bom = "{0:X2} {1:X2} {2:X2}" -f $bytes[0], $bytes[1], $bytes[2]
+          echo "File BOM: $bom (should be EF BB BF for UTF-8)"
+
+          if ($bom -ne "EF BB BF") {
+            echo "ERROR: Script file does not have UTF-8 BOM!"
+            exit 1
+          }
+
+          echo ""
+          echo "=== Running Installation Script ==="
+
+          # 运行脚本（使用 cmd /c 确保正确解析）
+          cmd /c $scriptPath
+
+          $exitCode = $LASTEXITCODE
+          echo ""
+          echo "Script exit code: $exitCode"
+
+          # 检查日志文件
+          $logFiles = Get-ChildItem "$env:TEMP" -Filter "andeshuang-install-*.log" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+
+          if ($logFiles) {
+            echo ""
+            echo "=== Installation Log ==="
+            Get-Content $logFiles.FullName
+          } else {
+            echo "WARNING: No log file found"
+          }
+
+        shell: powershell
+
+      - name: Verify uv installation
+        run: |
+          echo "=== Verifying uv ==="
+          $uvPath = "$env:USERPROFILE\.local\bin\uv.exe"
+          if (Test-Path $uvPath) {
+            echo "✓ uv installed at: $uvPath"
+            & $uvPath --version
+          } else {
+            echo "✗ uv not found"
+            exit 1
+          }
+        shell: powershell
+
+      - name: Verify Python installation
+        run: |
+          echo "=== Verifying Python ==="
+
+          # 刷新环境变量
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+          # 检查 uv 管理的 Python
+          $uvPython = "$env:USERPROFILE\.local\bin\python.exe"
+          if (Test-Path $uvPython) {
+            echo "✓ Python installed via uv at: $uvPython"
+            & $uvPython --version
+          } else {
+            # 检查系统 Python
+            $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
+            if ($pythonCmd) {
+              echo "✓ Python found in PATH: $($pythonCmd.Source)"
+              python --version
+            } else {
+              echo "✗ Python not found"
+              exit 1
+            }
+          }
+        shell: powershell
+
+      - name: Verify pipx installation
+        run: |
+          echo "=== Verifying pipx ==="
+
+          # 刷新环境变量
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+          $pipxCmd = Get-Command pipx -ErrorAction SilentlyContinue
+          if ($pipxCmd) {
+            echo "✓ pipx found at: $($pipxCmd.Source)"
+            pipx --version
+          } else {
+            echo "✗ pipx not found in PATH"
+
+            # 检查是否安装但未加入 PATH
+            $pipxPath = "$env:USERPROFILE\.local\bin\pipx.exe"
+            if (Test-Path $pipxPath) {
+              echo "⚠ pipx installed but not in PATH: $pipxPath"
+            } else {
+              echo "✗ pipx not installed"
+              exit 1
+            }
+          }
+        shell: powershell
+
+      - name: Verify JupyterLab installation
+        run: |
+          echo "=== Verifying JupyterLab ==="
+
+          # 使用 uv 管理的 Python 检查
+          $uvPython = "$env:USERPROFILE\.local\bin\python.exe"
+          if (Test-Path $uvPython) {
+            $result = & $uvPython -m pip list | Select-String "jupyterlab"
+            if ($result) {
+              echo "✓ JupyterLab installed:"
+              echo $result
+            } else {
+              echo "✗ JupyterLab not found in pip list"
+              exit 1
+            }
+          } else {
+            echo "⚠ Cannot verify JupyterLab (uv Python not found)"
+          }
+        shell: powershell
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installation-logs
+          path: ${{ runner.temp }}/andeshuang-install-*.log
+          if-no-files-found: warn
