@@ -1,4 +1,4 @@
-const PASSWORD_ITERATIONS = 210000
+const PASSWORD_ITERATIONS = 100000
 const USERNAME_PATTERN = /^[a-zA-Z0-9_][a-zA-Z0-9_-]{2,23}$/
 
 export function hasLocalAuthDatabase(env) {
