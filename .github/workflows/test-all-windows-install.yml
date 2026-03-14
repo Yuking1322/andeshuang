@@ -1,0 +1,267 @@
+name: Test All Windows Install Scripts
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/utils/scriptGenerator.js'
+      - 'src/utils/detectionScript.js'
+      - 'src/data/environments.js'
+      - 'scripts/generate-downloads.mjs'
+      - 'public/downloads/windows/**'
+      - '.github/workflows/test-all-windows-install.yml'
+  workflow_dispatch:
+
+jobs:
+  test-python-workbench:
+    name: Test Python Workbench
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Python Workbench Script
+        run: |
+          echo "=== Testing Python Workbench ==="
+          $scriptPath = "public\downloads\windows\python-workbench.bat"
+
+          # 检查 BOM
+          $bytes = [System.IO.File]::ReadAllBytes($scriptPath)
+          $bom = "{0:X2} {1:X2} {2:X2}" -f $bytes[0], $bytes[1], $bytes[2]
+          echo "File BOM: $bom"
+
+          # 运行脚本
+          cmd /c $scriptPath
+          echo "Exit code: $LASTEXITCODE"
+        shell: powershell
+
+      - name: Verify installations
+        run: |
+          echo "=== Verifying Python Workbench ==="
+
+          # uv
+          $uv = "$env:USERPROFILE\.local\bin\uv.exe"
+          if (Test-Path $uv) {
+            echo "[OK] uv: $(& $uv --version)"
+          } else {
+            echo "[FAIL] uv not found"; exit 1
+          }
+
+          # Python
+          $python = "$env:USERPROFILE\.local\bin\python.exe"
+          if (Test-Path $python) {
+            echo "[OK] Python: $(& $python --version)"
+          } else {
+            echo "[FAIL] Python not found"; exit 1
+          }
+
+          # pipx
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          $pipxCmd = Get-Command pipx -ErrorAction SilentlyContinue
+          if ($pipxCmd) {
+            echo "[OK] pipx: $(pipx --version 2>&1 | Select-Object -First 1)"
+          } else {
+            echo "[FAIL] pipx not found"; exit 1
+          }
+
+          # JupyterLab
+          $result = & $python -m pip list | Select-String "jupyterlab"
+          if ($result) {
+            echo "[OK] JupyterLab: $result"
+          } else {
+            echo "[FAIL] JupyterLab not found"; exit 1
+          }
+        shell: powershell
+
+  test-frontend-starter:
+    name: Test Frontend Starter
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Frontend Starter Script
+        run: |
+          echo "=== Testing Frontend Starter ==="
+          cmd /c "public\downloads\windows\frontend-starter.bat"
+          echo "Exit code: $LASTEXITCODE"
+        shell: powershell
+
+      - name: Verify installations
+        run: |
+          echo "=== Verifying Frontend Starter ==="
+
+          # Node.js
+          $node = Get-Command node -ErrorAction SilentlyContinue
+          if ($node) {
+            echo "[OK] Node.js: $(node --version)"
+          } else {
+            echo "[FAIL] Node.js not found"; exit 1
+          }
+
+          # Git
+          $git = Get-Command git -ErrorAction SilentlyContinue
+          if ($git) {
+            echo "[OK] Git: $(git --version)"
+          } else {
+            echo "[FAIL] Git not found"; exit 1
+          }
+
+          # pnpm
+          $pnpm = Get-Command pnpm -ErrorAction SilentlyContinue
+          if ($pnpm) {
+            echo "[OK] pnpm: $(pnpm --version)"
+          } else {
+            echo "[FAIL] pnpm not found"; exit 1
+          }
+        shell: powershell
+
+  test-backend-starter:
+    name: Test Backend Starter
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Backend Starter Script
+        run: |
+          echo "=== Testing Backend Starter ==="
+          cmd /c "public\downloads\windows\backend-starter.bat"
+          echo "Exit code: $LASTEXITCODE"
+        shell: powershell
+
+      - name: Verify installations
+        run: |
+          echo "=== Verifying Backend Starter ==="
+
+          # Java
+          $java = Get-Command java -ErrorAction SilentlyContinue
+          if ($java) {
+            echo "[OK] Java: $(java -version 2>&1 | Select-Object -First 1)"
+          } else {
+            echo "[FAIL] Java not found"; exit 1
+          }
+
+          # .NET
+          $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
+          if ($dotnet) {
+            echo "[OK] .NET: $(dotnet --version)"
+          } else {
+            echo "[FAIL] .NET not found"; exit 1
+          }
+
+          # Go
+          $go = Get-Command go -ErrorAction SilentlyContinue
+          if ($go) {
+            echo "[OK] Go: $(go version)"
+          } else {
+            echo "[FAIL] Go not found"; exit 1
+          }
+        shell: powershell
+
+  test-data-science-starter:
+    name: Test Data Science Starter
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Data Science Starter Script
+        run: |
+          echo "=== Testing Data Science Starter ==="
+          cmd /c "public\downloads\windows\data-science-starter.bat"
+          echo "Exit code: $LASTEXITCODE"
+        shell: powershell
+
+      - name: Verify installations
+        run: |
+          echo "=== Verifying Data Science Starter ==="
+
+          # Python (via uv)
+          $python = "$env:USERPROFILE\.local\bin\python.exe"
+          if (Test-Path $python) {
+            echo "[OK] Python: $(& $python --version)"
+
+            # 检查数据科学包
+            $packages = & $python -m pip list
+
+            if ($packages -match "pandas") {
+              echo "[OK] pandas installed"
+            } else {
+              echo "[FAIL] pandas not found"; exit 1
+            }
+
+            if ($packages -match "numpy") {
+              echo "[OK] numpy installed"
+            } else {
+              echo "[FAIL] numpy not found"; exit 1
+            }
+
+            if ($packages -match "matplotlib") {
+              echo "[OK] matplotlib installed"
+            } else {
+              echo "[FAIL] matplotlib not found"; exit 1
+            }
+          } else {
+            echo "[FAIL] Python not found"; exit 1
+          }
+        shell: powershell
+
+  test-health-check:
+    name: Test Health Check Script
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install some test software
+        run: |
+          echo "=== Installing test software ==="
+          choco install -y git nodejs python
+        shell: powershell
+
+      - name: Run Health Check Script
+        run: |
+          echo "=== Testing Health Check ==="
+          cmd /c "public\downloads\windows\health-check.cmd"
+          echo "Exit code: $LASTEXITCODE"
+        shell: powershell
+
+      - name: Verify health check output
+        run: |
+          echo "=== Verifying Health Check Output ==="
+
+          # 检查是否生成了 JSON 文件
+          $jsonFiles = Get-ChildItem -Path $env:TEMP -Filter "andeshuang-health-*.json" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+
+          if ($jsonFiles) {
+            echo "[OK] Health check JSON generated: $($jsonFiles.FullName)"
+
+            # 读取并验证 JSON
+            $json = Get-Content $jsonFiles.FullName | ConvertFrom-Json
+
+            if ($json.timestamp) {
+              echo "[OK] JSON contains timestamp: $($json.timestamp)"
+            } else {
+              echo "[FAIL] JSON missing timestamp"; exit 1
+            }
+
+            if ($json.results) {
+              echo "[OK] JSON contains results ($(($json.results | Measure-Object).Count) items)"
+            } else {
+              echo "[FAIL] JSON missing results"; exit 1
+            }
+          } else {
+            echo "[FAIL] Health check JSON not found"; exit 1
+          }
+        shell: powershell
