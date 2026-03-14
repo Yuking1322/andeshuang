@@ -12,6 +12,17 @@ import {
   registerLocalAccount
 } from './utils/sessionApi.js'
 
+const defaultLocalAuthConfig = Object.freeze({
+  enabled: false,
+  registrationMode: 'disabled',
+  registrationEnabled: false,
+  registrationStatus: 'local_auth_unavailable',
+  inviteCodeRequired: false,
+  registrationLimit: null,
+  totalUsers: 0,
+  remainingSlots: null
+})
+
 const selectedPackages = ref([])
 const activeView = ref('console')
 const entryMode = ref('linuxdo')
@@ -21,6 +32,7 @@ const sessionIsAdmin = ref(false)
 const authStatus = ref('loading')
 const authErrorCode = ref('')
 const authActionPending = ref(false)
+const localAuthConfig = ref({ ...defaultLocalAuthConfig })
 const localAuthError = ref('')
 const localLoginForm = ref({
   username: '',
@@ -29,6 +41,7 @@ const localLoginForm = ref({
 const localRegisterForm = ref({
   username: '',
   displayName: '',
+  inviteCode: '',
   password: '',
   confirmPassword: ''
 })
@@ -52,7 +65,49 @@ const runtimeStatus = computed(() =>
 const installerLabel = computed(() =>
   dashboardState.value.useChocolatey ? 'Chocolatey' : 'Scoop'
 )
+const canUseLocalLogin = computed(() => localAuthConfig.value.enabled)
+const canUseLocalRegister = computed(() => localAuthConfig.value.registrationEnabled)
 const currentUserLabel = computed(() => sessionUser.value?.name || sessionUser.value?.username || '')
+const entryModeTitleText = computed(() => {
+  if (entryMode.value === 'localRegister' && localAuthConfig.value.inviteCodeRequired) {
+    return '使用邀请码创建内测账号'
+  }
+
+  return (
+    {
+      linuxdo: '使用 LinuxDO 登录',
+      localLogin: '使用内测账号登录',
+      localRegister: '创建内测账号'
+    }[entryMode.value] || '使用 LinuxDO 登录'
+  )
+})
+const entryModeDescriptionText = computed(() => {
+  if (entryMode.value === 'linuxdo') {
+    return '登录后才能进入控制台。D1 保持轻量，不保存 LinuxDO 用户数据库，只使用安全 Cookie 维持会话。'
+  }
+
+  if (entryMode.value === 'localLogin') {
+    if (localAuthConfig.value.registrationMode === 'disabled') {
+      return '当前已经关闭公开注册，只保留已发放账号登录。没有账号时，请由管理员手动分发。'
+    }
+
+    if (localAuthConfig.value.registrationStatus === 'limit_reached') {
+      return '当前内测注册名额已满，只保留已有账号登录。需要继续放人时，请联系管理员调整名额。'
+    }
+
+    if (localAuthConfig.value.inviteCodeRequired) {
+      return '已有邀请码创建的内测账号可以直接登录。没有邀请码时，请先向管理员申请。'
+    }
+
+    return '如果你的同学没有 LinuxDO，也可以直接使用内测账号登录后体验控制台。'
+  }
+
+  if (localAuthConfig.value.inviteCodeRequired) {
+    return '当前注册改为邀请码模式，只有持有码的用户才能创建内测账号。注册成功后会自动进入控制台。'
+  }
+
+  return '内测阶段支持你自己创建一个测试账号。注册成功后会自动进入控制台。'
+})
 const authErrorMessage = computed(() => {
   if (!authErrorCode.value) return ''
 
@@ -105,6 +160,8 @@ const handleLinuxDOLogin = () => {
 }
 
 const switchEntryMode = (mode) => {
+  if (!isEntryModeAvailable(mode)) return
+
   entryMode.value = mode
   localAuthError.value = ''
 }
@@ -118,6 +175,7 @@ const handleLogout = async () => {
     selectedPackages.value = []
     activeView.value = 'console'
     localAuthError.value = ''
+    syncEntryModeWithPolicy()
     ElMessage.success('已退出登录')
   } catch {
     ElMessage.error('退出登录失败，请稍后重试')
@@ -144,7 +202,7 @@ const handleLocalLogin = async () => {
     await loadSession()
     ElMessage.success('登录成功，正在进入控制台')
   } catch (error) {
-    localAuthError.value = formatLocalAuthError(error)
+    localAuthError.value = formatLocalAuthErrorForUi(error)
   } finally {
     authActionPending.value = false
   }
@@ -155,11 +213,17 @@ const handleLocalRegister = async () => {
 
   const username = localRegisterForm.value.username.trim()
   const displayName = localRegisterForm.value.displayName.trim()
+  const inviteCode = localRegisterForm.value.inviteCode.trim()
   const password = localRegisterForm.value.password
   const confirmPassword = localRegisterForm.value.confirmPassword
 
   if (!username || !displayName || !password || !confirmPassword) {
     localAuthError.value = '请先把用户名、显示名、密码和确认密码填完整。'
+    return
+  }
+
+  if (localAuthConfig.value.inviteCodeRequired && !inviteCode) {
+    localAuthError.value = '当前注册需要邀请码，请先填写邀请码。'
     return
   }
 
@@ -174,6 +238,7 @@ const handleLocalRegister = async () => {
     await registerLocalAccount({
       username,
       displayName,
+      inviteCode,
       password
     })
 
@@ -181,7 +246,7 @@ const handleLocalRegister = async () => {
     await loadSession()
     ElMessage.success('注册成功，已经自动进入控制台')
   } catch (error) {
-    localAuthError.value = formatLocalAuthError(error)
+    localAuthError.value = formatLocalAuthErrorForUi(error)
   } finally {
     authActionPending.value = false
   }
@@ -192,6 +257,8 @@ async function loadSession() {
 
   try {
     const payload = await fetchSession()
+
+    applyLocalAuthConfig(payload)
 
     if (payload.authenticated) {
       sessionUser.value = payload.user
@@ -210,11 +277,34 @@ async function loadSession() {
   } catch {
     sessionUser.value = null
     sessionIsAdmin.value = false
+    localAuthConfig.value = { ...defaultLocalAuthConfig }
+    syncEntryModeWithPolicy()
     authStatus.value = 'unauthenticated'
     if (!authErrorCode.value) {
       authErrorCode.value = 'session_unavailable'
     }
   }
+}
+
+function applyLocalAuthConfig(payload) {
+  localAuthConfig.value = {
+    ...defaultLocalAuthConfig,
+    ...(payload?.localAuth || {})
+  }
+  syncEntryModeWithPolicy()
+}
+
+function syncEntryModeWithPolicy() {
+  if (isEntryModeAvailable(entryMode.value)) return
+
+  entryMode.value = canUseLocalLogin.value ? 'localLogin' : 'linuxdo'
+}
+
+function isEntryModeAvailable(mode) {
+  if (mode === 'linuxdo') return true
+  if (mode === 'localLogin') return canUseLocalLogin.value
+  if (mode === 'localRegister') return canUseLocalRegister.value
+  return false
 }
 
 function clearAuthForms() {
@@ -225,9 +315,23 @@ function clearAuthForms() {
   localRegisterForm.value = {
     username: '',
     displayName: '',
+    inviteCode: '',
     password: '',
     confirmPassword: ''
   }
+}
+
+function formatLocalAuthErrorForUi(error) {
+  const code = error?.code || error?.message || ''
+  const messages = {
+    registration_disabled: '当前环境已关闭公开注册，只保留已有账号登录。',
+    registration_unavailable: '邀请码注册尚未配置完成，请稍后再试。',
+    registration_limit_reached: '当前注册名额已满，请等待管理员放开名额。',
+    invite_code_required: '当前注册需要邀请码，请先填写邀请码。',
+    invalid_invite_code: '邀请码无效，请检查后重试。'
+  }
+
+  return messages[code] || formatLocalAuthError(error)
 }
 
 function formatLocalAuthError(error) {
@@ -241,6 +345,7 @@ function formatLocalAuthError(error) {
     missing_credentials: '请先输入用户名和密码。',
     username_taken: '这个用户名已经被注册了，换一个试试。',
     invalid_credentials: '用户名或密码不正确，请重新确认。',
+    account_disabled: '当前账号已被管理员停用，请联系管理员。',
     register_failed: '注册失败，账号没有创建成功，请稍后再试。',
     session_unavailable: '当前环境缺少会话密钥，暂时无法使用内测账号功能。',
     database_error: '账号服务暂时不可用，请稍后再试。'
@@ -303,6 +408,7 @@ function formatLocalAuthError(error) {
             </button>
             <button
               type="button"
+              v-if="canUseLocalLogin"
               :class="['entry-mode-tab', { active: entryMode === 'localLogin' }]"
               @click="switchEntryMode('localLogin')"
             >
@@ -310,6 +416,7 @@ function formatLocalAuthError(error) {
             </button>
             <button
               type="button"
+              v-if="canUseLocalRegister"
               :class="['entry-mode-tab', { active: entryMode === 'localRegister' }]"
               @click="switchEntryMode('localRegister')"
             >
@@ -317,8 +424,8 @@ function formatLocalAuthError(error) {
             </button>
           </div>
 
-          <h2>{{ entryModeTitle }}</h2>
-          <p>{{ entryModeDescription }}</p>
+          <h2>{{ entryModeTitleText }}</h2>
+          <p>{{ entryModeDescriptionText }}</p>
 
           <el-alert
             v-if="authErrorMessage"
@@ -371,13 +478,25 @@ function formatLocalAuthError(error) {
               >
                 使用内测账号登录
               </el-button>
-              <el-button plain class="entry-main-button" @click="switchEntryMode('localRegister')">
+              <el-button
+                v-if="canUseLocalRegister"
+                plain
+                class="entry-main-button"
+                @click="switchEntryMode('localRegister')"
+              >
                 没有账号？去注册
               </el-button>
             </div>
           </div>
 
-          <div v-else class="entry-form">
+          <div v-else-if="entryMode === 'localRegister'" class="entry-form">
+            <el-alert
+              v-if="localAuthConfig.inviteCodeRequired"
+              title="当前环境只开放邀请码注册，请先填写邀请码。"
+              type="info"
+              :closable="false"
+              class="entry-alert"
+            />
             <el-input
               v-model.trim="localRegisterForm.username"
               placeholder="用户名（建议字母、数字、下划线）"
@@ -388,6 +507,13 @@ function formatLocalAuthError(error) {
               v-model.trim="localRegisterForm.displayName"
               placeholder="显示名"
               autocomplete="nickname"
+              size="large"
+            />
+            <el-input
+              v-if="localAuthConfig.inviteCodeRequired"
+              v-model.trim="localRegisterForm.inviteCode"
+              placeholder="邀请码"
+              autocomplete="one-time-code"
               size="large"
             />
             <el-input
@@ -582,8 +708,6 @@ function formatLocalAuthError(error) {
         </main>
       </div>
     </div>
-
-    <p class="desktop-footer">当前界面实验版本已保留备份，可随时回退到上一版。</p>
 
     <el-dialog
       v-model="showLoginGuide"
