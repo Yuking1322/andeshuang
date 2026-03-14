@@ -162,8 +162,8 @@ const launchItems = computed(() => [
   {
     key: 'protection',
     label: '认证接口保护',
-    value: '仍需到 Cloudflare 配置 WAF 与 Rate Limiting 规则',
-    status: 'todo'
+    value: '已在 andeshuang.me 配置 WAF 与 Rate Limiting 规则',
+    status: 'done'
   }
 ])
 
