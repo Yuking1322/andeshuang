@@ -198,11 +198,26 @@ jobs:
           }
 
           # Miniconda
-          $conda = Get-Command conda -ErrorAction SilentlyContinue
-          if ($conda) {
-            echo "[OK] Miniconda found"
-          } else {
-            echo "[FAIL] Miniconda not found"; exit 1
+          $condaPaths = @(
+            "$env:ProgramData\miniconda3\Scripts\conda.exe",
+            "$env:USERPROFILE\miniconda3\Scripts\conda.exe",
+            "C:\tools\miniconda3\Scripts\conda.exe"
+          )
+          $condaFound = $false
+          foreach ($path in $condaPaths) {
+            if (Test-Path $path) {
+              echo "[OK] Miniconda found at: $path"
+              $condaFound = $true
+              break
+            }
+          }
+          if (-not $condaFound) {
+            $conda = Get-Command conda -ErrorAction SilentlyContinue
+            if ($conda) {
+              echo "[OK] Miniconda found in PATH"
+            } else {
+              echo "[FAIL] Miniconda not found"; exit 1
+            }
           }
 
           # JupyterLab
@@ -250,10 +265,10 @@ jobs:
             # 读取并验证 JSON
             $json = Get-Content $jsonFile | ConvertFrom-Json
 
-            if ($json.timestamp) {
-              echo "[OK] JSON contains timestamp: $($json.timestamp)"
+            if ($json.generatedAt) {
+              echo "[OK] JSON contains generatedAt: $($json.generatedAt)"
             } else {
-              echo "[FAIL] JSON missing timestamp"; exit 1
+              echo "[FAIL] JSON missing generatedAt"; exit 1
             }
 
             if ($json.results) {
