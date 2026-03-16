@@ -8,44 +8,30 @@ export const windowsPresetDownloads = [
   },
   {
     id: 'frontend-starter',
-    name: '前端新机包',
+    name: '前端起步包',
     fileName: 'frontend-starter.bat',
     description: 'Node.js / Git / VS Code / pnpm',
     packageIds: ['nodejs', 'git', 'vscode', 'pnpm']
   },
   {
-    id: 'python-workbench',
-    name: 'Python 工作台',
-    fileName: 'python-workbench.bat',
-    description: 'uv / Python / pipx / JupyterLab',
-    packageIds: ['uv', 'python', 'pipx', 'jupyterlab']
+    id: 'python-data-starter',
+    name: 'Python 数据分析包',
+    fileName: 'python-data-starter.bat',
+    description: 'VS Code / uv / Python / JupyterLab',
+    packageIds: ['vscode', 'uv', 'python', 'jupyterlab']
   },
   {
-    id: 'backend-starter',
-    name: '后端基础包',
-    fileName: 'backend-starter.bat',
-    description: 'Temurin JDK / .NET SDK / Go',
-    packageIds: ['openjdk', 'dotnet', 'go']
+    id: 'java-backend-starter',
+    name: 'Java 后端包',
+    fileName: 'java-backend-starter.bat',
+    description: 'Git / VS Code / Temurin JDK / MySQL / Redis',
+    packageIds: ['git', 'vscode', 'openjdk', 'mysql', 'redis']
   },
   {
-    id: 'data-science-starter',
-    name: '数据科学包',
-    fileName: 'data-science-starter.bat',
-    description: 'Python / Miniconda / JupyterLab',
-    packageIds: ['python', 'miniconda', 'jupyterlab']
-  },
-  {
-    id: 'deep-learning-starter',
-    name: '深度学习包',
-    fileName: 'deep-learning-starter.bat',
-    description: 'Python / PyTorch / Ollama',
-    packageIds: ['python', 'pytorch', 'ollama']
-  },
-  {
-    id: 'fullstack-starter',
-    name: '全栈常用包',
-    fileName: 'fullstack-starter.bat',
-    description: 'Node.js / Git / VS Code / Python / PostgreSQL',
-    packageIds: ['nodejs', 'git', 'vscode', 'python', 'postgresql']
+    id: 'ai-local-starter',
+    name: 'AI 本地推理包',
+    fileName: 'ai-local-starter.bat',
+    description: 'VS Code / Ollama / Docker Desktop / Python / PyTorch',
+    packageIds: ['vscode', 'ollama', 'dockerdesktop', 'python', 'pytorch']
   }
 ]

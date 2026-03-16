@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { Buffer } from 'node:buffer'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -12,6 +12,10 @@ const projectRoot = path.resolve(currentDir, '..')
 const outputDir = path.join(projectRoot, 'public', 'downloads', 'windows')
 
 await mkdir(outputDir, { recursive: true })
+
+for (const entry of await readdir(outputDir)) {
+  await rm(path.join(outputDir, entry), { recursive: true, force: true })
+}
 
 for (const preset of windowsPresetDownloads) {
   const filePath = path.join(outputDir, preset.fileName)

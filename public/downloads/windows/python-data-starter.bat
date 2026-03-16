@@ -12,8 +12,40 @@ set "LOGFILE=%~dp0andeshuang-install-%TIMESTAMP%.log"
 set /a FAILED_COUNT=0
 set "PIP_MIRROR_READY=0"
 
+>nul 2>&1 "%SYSTEMROOT%\system32\cacls.exe" "%SYSTEMROOT%\system32\config\system"
+if '%errorlevel%' NEQ '0' (
+  echo 正在请求管理员权限...
+  goto UACPrompt
+) else (
+  goto GotAdmin
+)
+
+:UACPrompt
+echo Set UAC = CreateObject^("Shell.Application"^) > "%temp%\getadmin.vbs"
+echo UAC.ShellExecute "%~s0", "", "", "runas", 1 >> "%temp%\getadmin.vbs"
+"%temp%\getadmin.vbs"
+exit /B
+
+:GotAdmin
+if exist "%temp%\getadmin.vbs" del "%temp%\getadmin.vbs"
 pushd "%CD%"
 CD /D "%~dp0"
+
+echo [检查] Chocolatey 是否已安装...
+where choco >nul 2>nul
+if %errorlevel% neq 0 (
+  echo [安装] 正在安装 Chocolatey...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
+if %errorlevel% neq 0 (
+  echo [失败] Chocolatey 安装失败，请检查网络、代理或管理员权限。
+  pause
+  exit /b 1
+)
+call refreshenv >nul 2>nul
+echo [成功] Chocolatey 安装完成。
+) else (
+  echo [跳过] 已检测到 Chocolatey。
+)
 echo.
 cls
 echo ===================================== > "%LOGFILE%"
@@ -28,6 +60,20 @@ echo 日志文件：%LOGFILE%
 echo.
 echo [开始] 执行 安装流程...
 echo [开始] 执行 安装流程... >> "%LOGFILE%"
+echo.
+echo [安装] Visual Studio Code
+echo [安装] Visual Studio Code >> "%LOGFILE%"
+set "PACKAGE_FAILED="
+call choco install vscode -y --no-progress >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
+if defined PACKAGE_FAILED (
+  echo [失败] Visual Studio Code
+  echo [失败] Visual Studio Code >> "%LOGFILE%"
+  set /a FAILED_COUNT+=1
+) else (
+  echo [成功] Visual Studio Code
+  echo [成功] Visual Studio Code >> "%LOGFILE%"
+)
 echo.
 echo [安装] uv
 echo [安装] uv >> "%LOGFILE%"
@@ -61,34 +107,6 @@ if defined PACKAGE_FAILED (
 ) else (
   echo [成功] Python · 3.13 推荐
   echo [成功] Python · 3.13 推荐 >> "%LOGFILE%"
-)
-echo.
-echo [安装] pipx
-echo [安装] pipx >> "%LOGFILE%"
-echo [提示] 需要当前系统已经能调用 python。
-echo [提示] 需要当前系统已经能调用 python。 >> "%LOGFILE%"
-set "PACKAGE_FAILED="
-if "!PIP_MIRROR_READY!"=="0" (
-  echo [配置] 正在设置 pip 镜像...
-  echo [配置] 正在设置 pip 镜像... >> "%LOGFILE%"
-  call powershell -NoProfile -Command "$py = if (Test-Path \"$env:USERPROFILE\\.local\\bin\\python.exe\") { \"$env:USERPROFILE\\.local\\bin\\python.exe\" } else { 'python' }; & $py -m pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple" >> "%LOGFILE%" 2>&1
-  if !errorlevel! neq 0 (
-    echo [提示] pip 镜像设置失败，将继续使用默认配置。
-    echo [提示] pip 镜像设置失败。 >> "%LOGFILE%"
-  )
-  set "PIP_MIRROR_READY=1"
-)
-call powershell -NoProfile -Command "$py = if (Test-Path \"$env:USERPROFILE\\.local\\bin\\python.exe\") { \"$env:USERPROFILE\\.local\\bin\\python.exe\" } else { 'python' }; & $py -m pip install --user --break-system-packages pipx" >> "%LOGFILE%" 2>&1
-if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
-call powershell -NoProfile -Command "$py = if (Test-Path \"$env:USERPROFILE\\.local\\bin\\python.exe\") { \"$env:USERPROFILE\\.local\\bin\\python.exe\" } else { 'python' }; & $py -m pipx ensurepath" >> "%LOGFILE%" 2>&1
-if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
-if defined PACKAGE_FAILED (
-  echo [失败] pipx
-  echo [失败] pipx >> "%LOGFILE%"
-  set /a FAILED_COUNT+=1
-) else (
-  echo [成功] pipx
-  echo [成功] pipx >> "%LOGFILE%"
 )
 echo.
 echo [安装] JupyterLab

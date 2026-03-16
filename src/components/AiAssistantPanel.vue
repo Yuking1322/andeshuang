@@ -26,7 +26,7 @@ const messages = ref([
   {
     id: 'welcome',
     role: 'assistant',
-    content: '我是安的爽的内置 AI 助手。你可以直接问我该怎么选环境、为什么安装失败，或者让我要一套更稳的推荐方案。',
+    content: '我是安的爽的内置 AI 环境顾问。你可以直接问我该怎么选场景、什么版本更稳、为什么安装失败，或者让我给你一套更适合当前目标的方案。',
     localOnly: true
   }
 ])
@@ -63,10 +63,10 @@ const quickPrompts = computed(() => {
   }
 
   return [
-    '我要搭一套稳一点的前端开发环境，推荐选什么？',
+    '我要搭一套稳一点的前端入门环境，推荐选什么？',
     '我想学 Python 数据分析，推荐一套入门配置。',
-    '我想做本地 AI / 大模型开发，应该先装哪些？',
-    'Chocolatey 和 Scoop 我该怎么选？'
+    '我在配 Java 后端开发环境，第一批应该装哪些？',
+    '我想做本地 AI / 大模型实验，应该先装哪些？'
   ]
 })
 
@@ -115,7 +115,7 @@ function clearConversation() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: '聊天记录已经清空。你可以继续问我选环境、脚本、排障或版本取舍。',
+      content: '聊天记录已经清空。你可以继续问我选场景、版本取舍、脚本或排障。',
       localOnly: true
     }
   ]
@@ -185,10 +185,10 @@ function formatAiError(error) {
   <section class="assistant-card">
     <div class="assistant-head">
       <div>
-        <p class="assistant-label">AI 问答</p>
-        <h3>边配环境，边问它为什么</h3>
+        <p class="assistant-label">AI 环境顾问</p>
+        <h3>边配环境，边问为什么这样选</h3>
         <p class="assistant-copy">
-          更适合做推荐、解释和排障。
+          更适合做场景推荐、版本取舍和排障。
         </p>
       </div>
     </div>

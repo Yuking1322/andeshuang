@@ -35,53 +35,6 @@ const pythonViaUv = (version, summary, extra = {}) =>
     }
   )
 
-const dotnetViaWinget = (channel, summary) =>
-  action(
-    [
-      `winget install ${channel} --accept-source-agreements --accept-package-agreements --silent --disable-interactivity`
-    ],
-    [
-      `winget uninstall ${channel} --silent --disable-interactivity`
-    ],
-    {
-      summary,
-      note: '使用 winget 安装 .NET SDK，版本会按官方渠道维护。'
-    }
-  )
-
-const rustToolchain = (channel, summary) =>
-  managerActions(
-    action(
-      [
-        'choco install rustup.install -y --no-progress',
-        `rustup toolchain install ${channel}`,
-        `rustup default ${channel}`
-      ],
-      [
-        'rustup self uninstall -y'
-      ],
-      {
-        summary,
-        note: 'Rust 会通过 rustup 安装，并把当前默认工具链切到所选通道。'
-      }
-    ),
-    action(
-      [
-        `powershell -NoProfile -Command "$b = scoop bucket list 2>$null; if (-not ($b -match 'versions')) { scoop bucket add versions }"`,
-        'scoop install rustup-msvc',
-        `rustup toolchain install ${channel}`,
-        `rustup default ${channel}`
-      ],
-      [
-        'rustup self uninstall -y'
-      ],
-      {
-        summary,
-        note: 'Rust 会通过 rustup 安装，并把当前默认工具链切到所选通道。'
-      }
-    )
-  )
-
 export const automationMeta = {
   'one-click': {
     label: '真一键',
@@ -99,19 +52,19 @@ export const automationMeta = {
 
 export const environments = {
   frontend: {
-    name: '前端 / Web',
-    icon: '🖥️',
-    description: '面向前端工程、Web 工具链与现代 JavaScript 运行时。',
+    name: '前端入门',
+    icon: '🌐',
+    description: '面向课程作业、作品集和第一套 Web 项目的 Windows 起步环境。',
     packages: [
       {
         id: 'nodejs',
         name: 'Node.js',
-        description: 'JavaScript 运行时，Vue / React / Next / Vite 的基础依赖。',
+        description: 'Vue / React / Vite 这类前端项目最核心的运行时。',
         popular: true,
         automation: 'one-click',
         officialUrl: 'https://nodejs.org/en/about/releases/',
         tags: ['JavaScript', '运行时', 'npm'],
-        searchTerms: ['node', 'nodejs', 'npm', 'javascript', 'vite', 'react', 'vue', 'next'],
+        searchTerms: ['node', 'nodejs', 'npm', 'javascript', 'vite', 'react', 'vue', 'next', '前端'],
         recommendedVersion: 'lts',
         versionOptions: [
           {
@@ -147,52 +100,14 @@ export const environments = {
         ]
       },
       {
-        id: 'bun',
-        name: 'Bun',
-        description: '更快的 JavaScript / TypeScript 运行时与包管理器。',
-        automation: 'one-click',
-        officialUrl: 'https://bun.sh/docs/installation',
-        tags: ['JavaScript', 'TypeScript', '运行时'],
-        searchTerms: ['bun', 'javascript', 'typescript'],
-        managerActions: managerActions(
-          action(
-            ['choco install bun -y --no-progress'],
-            ['choco uninstall bun -y --no-progress']
-          ),
-          action(
-            ['scoop install bun'],
-            ['scoop uninstall bun']
-          )
-        )
-      },
-      {
-        id: 'deno',
-        name: 'Deno',
-        description: '现代 JavaScript / TypeScript 运行时，适合脚本和边缘应用。',
-        automation: 'one-click',
-        officialUrl: 'https://docs.deno.com/runtime/manual/getting_started/installation/',
-        tags: ['JavaScript', 'TypeScript', '运行时'],
-        searchTerms: ['deno', 'javascript', 'typescript'],
-        managerActions: managerActions(
-          action(
-            ['choco install deno -y --no-progress'],
-            ['choco uninstall deno -y --no-progress']
-          ),
-          action(
-            ['scoop install deno'],
-            ['scoop uninstall deno']
-          )
-        )
-      },
-      {
         id: 'git',
         name: 'Git',
-        description: '版本控制工具，团队协作必备。',
+        description: '建议第一台开发机就装上的版本控制工具。',
         popular: true,
         automation: 'one-click',
         officialUrl: 'https://git-scm.com/downloads/win',
         tags: ['版本控制'],
-        searchTerms: ['git', 'github', 'source control'],
+        searchTerms: ['git', 'github', 'source control', '版本控制'],
         managerActions: managerActions(
           action(
             ['choco install git -y --no-progress'],
@@ -207,7 +122,7 @@ export const environments = {
       {
         id: 'vscode',
         name: 'Visual Studio Code',
-        description: '轻量高效的代码编辑器，适合绝大多数开发场景。',
+        description: '对学生和新手最友好的通用编辑器，前端、Python、Java 都能先用它起步。',
         popular: true,
         automation: 'one-click',
         officialUrl: 'https://code.visualstudio.com/download',
@@ -225,34 +140,14 @@ export const environments = {
         )
       },
       {
-        id: 'yarn',
-        name: 'Yarn',
-        description: '经典 JavaScript 包管理器，适合维护旧项目或 monorepo。',
-        automation: 'one-click',
-        officialUrl: 'https://yarnpkg.com/getting-started/install',
-        tags: ['包管理器'],
-        searchTerms: ['yarn', 'package manager'],
-        dependencies: ['nodejs'],
-        managerActions: managerActions(
-          action(
-            ['choco install yarn -y --no-progress'],
-            ['choco uninstall yarn -y --no-progress']
-          ),
-          action(
-            ['scoop install yarn'],
-            ['scoop uninstall yarn']
-          )
-        )
-      },
-      {
         id: 'pnpm',
         name: 'pnpm',
-        description: '节省磁盘空间的高性能包管理器。',
+        description: '多数现代前端项目都会直接用它来安装依赖。',
         popular: true,
         automation: 'one-click',
         officialUrl: 'https://pnpm.io/installation',
         tags: ['包管理器'],
-        searchTerms: ['pnpm', 'package manager'],
+        searchTerms: ['pnpm', 'package manager', '前端'],
         dependencies: ['nodejs'],
         managerActions: managerActions(
           action(
@@ -269,19 +164,49 @@ export const environments = {
   },
 
   python: {
-    name: 'Python / 数据开发',
-    icon: '🐍',
-    description: '聚焦 Python、版本管理、数据分析与 Notebook 工作流。',
+    name: 'Python 数据分析',
+    icon: '📊',
+    description: '面向 Notebook、数据分析和实验记录的入门环境。',
     packages: [
+      {
+        id: 'uv',
+        name: 'uv',
+        description: '推荐优先安装，用来管理 Python 版本、虚拟环境和依赖。',
+        popular: true,
+        automation: 'guided',
+        officialUrl: 'https://docs.astral.sh/uv/getting-started/installation/',
+        tags: ['Python', '包管理器', '版本管理'],
+        searchTerms: ['uv', 'python manager', 'virtualenv', 'venv', '数据分析'],
+        managerActions: managerActions(
+          action(
+            ['powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"'],
+            [
+              'powershell -NoProfile -Command "Remove-Item -Force -ErrorAction SilentlyContinue \\\"$env:USERPROFILE\\\\.local\\\\bin\\\\uv.exe\\\",\\\"$env:USERPROFILE\\\\.local\\\\bin\\\\uvx.exe\\\",\\\"$env:USERPROFILE\\\\.local\\\\bin\\\\uvw.exe\\\""'
+            ],
+            {
+              note: 'uv 使用官方安装脚本，安装后可直接管理 Python 与依赖。'
+            }
+          ),
+          action(
+            ['powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"'],
+            [
+              'powershell -NoProfile -Command "Remove-Item -Force -ErrorAction SilentlyContinue \\\"$env:USERPROFILE\\\\.local\\\\bin\\\\uv.exe\\\",\\\"$env:USERPROFILE\\\\.local\\\\bin\\\\uvx.exe\\\",\\\"$env:USERPROFILE\\\\.local\\\\bin\\\\uvw.exe\\\""'
+            ],
+            {
+              note: 'uv 使用官方安装脚本，安装后可直接管理 Python 与依赖。'
+            }
+          )
+        )
+      },
       {
         id: 'python',
         name: 'Python',
-        description: '可通过 uv 管理多个 Python 版本，适合长期开发和切换项目。',
+        description: '建议和 uv 配合使用，兼顾课程作业、数据分析和长期项目。',
         popular: true,
         automation: 'guided',
         officialUrl: 'https://docs.astral.sh/uv/guides/install-python/',
         tags: ['Python', '运行时', '解释器'],
-        searchTerms: ['python', 'py', '解释器', '数据分析'],
+        searchTerms: ['python', 'py', '解释器', '数据分析', 'notebook'],
         dependencies: ['uv'],
         recommendedVersion: '3.13',
         versionOptions: [
@@ -315,79 +240,14 @@ export const environments = {
         ]
       },
       {
-        id: 'uv',
-        name: 'uv',
-        description: '新一代 Python 包与版本管理工具，也是推荐的 Python 版本安装器。',
-        popular: true,
-        automation: 'guided',
-        officialUrl: 'https://docs.astral.sh/uv/getting-started/installation/',
-        tags: ['Python', '包管理器', '版本管理'],
-        searchTerms: ['uv', 'python manager', 'virtualenv', 'venv'],
-        managerActions: managerActions(
-          action(
-            ['powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"'],
-            [
-              'powershell -NoProfile -Command "Remove-Item -Force -ErrorAction SilentlyContinue \\\"$env:USERPROFILE\\\\.local\\\\bin\\\\uv.exe\\\",\\\"$env:USERPROFILE\\\\.local\\\\bin\\\\uvx.exe\\\",\\\"$env:USERPROFILE\\\\.local\\\\bin\\\\uvw.exe\\\""'
-            ],
-            {
-              note: 'uv 使用官方安装脚本，安装后可直接管理 Python 与依赖。'
-            }
-          ),
-          action(
-            ['powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"'],
-            [
-              'powershell -NoProfile -Command "Remove-Item -Force -ErrorAction SilentlyContinue \\\"$env:USERPROFILE\\\\.local\\\\bin\\\\uv.exe\\\",\\\"$env:USERPROFILE\\\\.local\\\\bin\\\\uvx.exe\\\",\\\"$env:USERPROFILE\\\\.local\\\\bin\\\\uvw.exe\\\""'
-            ],
-            {
-              note: 'uv 使用官方安装脚本，安装后可直接管理 Python 与依赖。'
-            }
-          )
-        )
-      },
-      {
-        id: 'pipx',
-        name: 'pipx',
-        description: '把 Python CLI 工具隔离安装到独立环境，适合装 ruff、black 这类命令行工具。',
-        automation: 'guided',
-        officialUrl: 'https://pipx.pypa.io/stable/installation/',
-        tags: ['Python', '工具'],
-        searchTerms: ['pipx', 'python tools', 'ruff', 'black'],
-        dependencies: ['python'],
-        managerActions: managerActions(
-          action(
-            [
-              pythonCommand('-m pip install --user --break-system-packages pipx'),
-              pythonCommand('-m pipx ensurepath')
-            ],
-            [
-              pythonCommand('-m pip uninstall -y pipx')
-            ],
-            {
-              note: '需要当前系统已经能调用 python。'
-            }
-          ),
-          action(
-            [
-              pythonCommand('-m pip install --user --break-system-packages pipx'),
-              pythonCommand('-m pipx ensurepath')
-            ],
-            [
-              pythonCommand('-m pip uninstall -y pipx')
-            ],
-            {
-              note: '需要当前系统已经能调用 python。'
-            }
-          )
-        )
-      },
-      {
         id: 'jupyterlab',
         name: 'JupyterLab',
-        description: '适合数据分析、实验记录和教学演示的 Notebook 环境。',
+        description: '做 Notebook、实验记录和课堂演示时最直接的一步。',
+        popular: true,
         automation: 'guided',
         officialUrl: 'https://jupyter.org/install',
         tags: ['Notebook', '数据分析'],
-        searchTerms: ['jupyter', 'jupyterlab', 'notebook'],
+        searchTerms: ['jupyter', 'jupyterlab', 'notebook', '数据分析'],
         dependencies: ['python'],
         managerActions: managerActions(
           action(
@@ -403,12 +263,11 @@ export const environments = {
       {
         id: 'miniconda',
         name: 'Miniconda',
-        description: '轻量版 Conda 发行版，适合科研环境和多环境切换。',
-        popular: true,
+        description: '如果课程、教材或团队流程大量使用 conda，再选它作为替代路线。',
         automation: 'one-click',
         officialUrl: 'https://www.anaconda.com/docs/getting-started/miniconda/install',
         tags: ['Conda', '数据科学'],
-        searchTerms: ['miniconda', 'conda', 'data science'],
+        searchTerms: ['miniconda', 'conda', 'data science', '数据分析'],
         managerActions: managerActions(
           action(
             ['choco install miniconda3 -y --no-progress'],
@@ -420,43 +279,23 @@ export const environments = {
           )
         )
       },
-      {
-        id: 'anaconda',
-        name: 'Anaconda',
-        description: '大而全的数据科学发行版，适合偏科研或教学的整包安装。',
-        automation: 'guided',
-        officialUrl: 'https://www.anaconda.com/download',
-        tags: ['Conda', '数据科学'],
-        searchTerms: ['anaconda', 'conda', 'scientific python'],
-        size: '大型安装包（约 3GB）',
-        managerActions: managerActions(
-          action(
-            ['choco install anaconda3 -y --no-progress'],
-            ['choco uninstall anaconda3 -y --no-progress']
-          ),
-          action(
-            ['scoop install anaconda3'],
-            ['scoop uninstall anaconda3']
-          )
-        )
-      }
     ]
   },
 
   backend: {
-    name: '后端 / 通用开发',
-    icon: '🧩',
-    description: '覆盖 Java、.NET、Go、Rust 等主流后端和基础开发环境。',
+    name: 'Java 后端',
+    icon: '☕',
+    description: '围绕 Java Web、Spring Boot 和本地数据库联调的起步环境。',
     packages: [
       {
         id: 'openjdk',
         name: 'Temurin JDK',
-        description: '更适合企业和通用开发的 Java 发行版。',
+        description: 'Java 后端课程和 Spring Boot 项目的基础依赖。',
         popular: true,
         automation: 'guided',
         officialUrl: 'https://adoptium.net/support/',
         tags: ['Java', 'JDK'],
-        searchTerms: ['java', 'jdk', 'temurin', 'adoptium'],
+        searchTerms: ['java', 'jdk', 'temurin', 'adoptium', 'spring boot', '后端'],
         recommendedVersion: '21',
         versionOptions: [
           {
@@ -507,100 +346,14 @@ export const environments = {
         ]
       },
       {
-        id: 'dotnet',
-        name: '.NET SDK',
-        description: '适合 ASP.NET、桌面工具和跨平台 CLI 开发。',
-        automation: 'guided',
-        officialUrl: 'https://dotnet.microsoft.com/en-us/download',
-        tags: ['.NET', 'C#'],
-        searchTerms: ['dotnet', '.net', 'csharp', 'asp.net'],
-        recommendedVersion: '10',
-        versionOptions: [
-          {
-            id: '10',
-            label: '10 LTS 推荐',
-            summary: '建议新项目默认使用',
-            managerActions: managerActions(
-              dotnetViaWinget('Microsoft.DotNet.SDK.10', '使用 winget 安装 .NET 10 SDK'),
-              dotnetViaWinget('Microsoft.DotNet.SDK.10', '使用 winget 安装 .NET 10 SDK')
-            )
-          },
-          {
-            id: '9',
-            label: '9',
-            summary: '适合跟已有项目版本保持一致',
-            managerActions: managerActions(
-              dotnetViaWinget('Microsoft.DotNet.SDK.9', '使用 winget 安装 .NET 9 SDK'),
-              dotnetViaWinget('Microsoft.DotNet.SDK.9', '使用 winget 安装 .NET 9 SDK')
-            )
-          }
-        ]
-      },
-      {
-        id: 'go',
-        name: 'Go',
-        description: '适合后端服务、CLI 和工具型应用开发。',
-        automation: 'one-click',
-        officialUrl: 'https://go.dev/doc/install',
-        tags: ['Go', '后端'],
-        searchTerms: ['go', 'golang'],
-        managerActions: managerActions(
-          action(
-            ['choco install golang -y --no-progress'],
-            ['choco uninstall golang -y --no-progress']
-          ),
-          action(
-            ['scoop install go'],
-            ['scoop uninstall go']
-          )
-        )
-      },
-      {
-        id: 'rust',
-        name: 'Rust',
-        description: '适合系统工具、CLI、服务端和高性能场景。',
-        automation: 'guided',
-        officialUrl: 'https://rustup.rs/',
-        tags: ['Rust', '系统开发'],
-        searchTerms: ['rust', 'rustup', 'cargo'],
-        recommendedVersion: 'stable',
-        versionOptions: [
-          {
-            id: 'stable',
-            label: 'stable 推荐',
-            summary: '适合正式开发',
-            managerActions: rustToolchain('stable', '默认安装稳定版工具链')
-          },
-          {
-            id: 'beta',
-            label: 'beta',
-            summary: '适合提前验证即将进入稳定版的能力',
-            managerActions: rustToolchain('beta', '默认安装 beta 工具链')
-          },
-          {
-            id: 'nightly',
-            label: 'nightly',
-            summary: '适合实验性特性和高级编译选项',
-            managerActions: rustToolchain('nightly', '默认安装 nightly 工具链')
-          }
-        ]
-      }
-    ]
-  },
-
-  databases: {
-    name: '数据库 / 服务',
-    icon: '🗄️',
-    description: '本地数据库、缓存和开发常用服务。',
-    packages: [
-      {
         id: 'mysql',
         name: 'MySQL',
-        description: '经典关系型数据库，适合大多数 Web 后端。',
+        description: '学校课程和中小型 Java Web 项目最常见的数据库选择。',
+        popular: true,
         automation: 'guided',
         officialUrl: 'https://dev.mysql.com/downloads/installer/',
         tags: ['数据库'],
-        searchTerms: ['mysql', 'database'],
+        searchTerms: ['mysql', 'database', 'java backend', 'spring boot'],
         note: '安装后通常还需要初始化 root 密码和服务配置。',
         managerActions: managerActions(
           action(
@@ -616,11 +369,11 @@ export const environments = {
       {
         id: 'postgresql',
         name: 'PostgreSQL',
-        description: '功能强大的关系型数据库，适合中大型后端与分析场景。',
+        description: '如果你更偏现代服务开发，也可以选它作为本地数据库路线。',
         automation: 'guided',
         officialUrl: 'https://www.postgresql.org/download/windows/',
         tags: ['数据库'],
-        searchTerms: ['postgres', 'postgresql', 'database'],
+        searchTerms: ['postgres', 'postgresql', 'database', 'java backend'],
         note: '安装后通常要确认端口、超级用户和服务状态。',
         managerActions: managerActions(
           action(
@@ -634,33 +387,13 @@ export const environments = {
         )
       },
       {
-        id: 'mongodb',
-        name: 'MongoDB',
-        description: '适合灵活数据结构和文档型开发场景。',
-        automation: 'guided',
-        officialUrl: 'https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-windows/',
-        tags: ['数据库', 'NoSQL'],
-        searchTerms: ['mongodb', 'mongo', 'nosql'],
-        note: '安装后建议确认服务启动方式和数据目录。',
-        managerActions: managerActions(
-          action(
-            ['choco install mongodb -y --no-progress'],
-            ['choco uninstall mongodb -y --no-progress']
-          ),
-          action(
-            [`powershell -NoProfile -Command "$b = scoop bucket list 2>$null; if (-not ($b -match 'versions')) { scoop bucket add versions }"`, 'scoop install mongodb'],
-            ['scoop uninstall mongodb']
-          )
-        )
-      },
-      {
         id: 'redis',
         name: 'Redis',
-        description: '适合缓存、队列和本地服务依赖。',
+        description: '做缓存、验证码、会话或本地消息队列实验时常会用到。',
         automation: 'guided',
         officialUrl: 'https://redis.io/docs/latest/operate/oss_and_stack/install/install-stack/windows/',
         tags: ['缓存', '数据库'],
-        searchTerms: ['redis', 'cache'],
+        searchTerms: ['redis', 'cache', 'java backend', 'spring boot'],
         note: 'Windows 环境下更适合作为本地开发依赖，正式生产建议使用 Linux 服务。',
         managerActions: managerActions(
           action(
@@ -677,19 +410,19 @@ export const environments = {
   },
 
   ai: {
-    name: 'AI / 容器',
+    name: 'AI 本地推理',
     icon: '🤖',
-    description: '本地 AI 推理、深度学习与容器环境。',
+    description: '适合本地跑模型、做 Prompt 原型和轻量实验的 Windows 起步环境。',
     packages: [
       {
         id: 'ollama',
         name: 'Ollama',
-        description: '适合本地运行大模型，做 AI 原型和私有推理。',
+        description: '本地跑大模型最直接的入口，适合快速做 AI 原型和私有推理。',
         popular: true,
         automation: 'guided',
         officialUrl: 'https://docs.ollama.com/windows',
         tags: ['AI', 'LLM', '本地模型'],
-        searchTerms: ['ollama', 'llm', 'local ai', '大模型'],
+        searchTerms: ['ollama', 'llm', 'local ai', '大模型', '本地推理'],
         note: '安装完程序后，模型文件仍需按需下载。',
         managerActions: managerActions(
           manualAction('建议使用 Ollama 官方 Windows 安装器，装完后再按需下载模型。', 'https://ollama.com/download/windows'),
@@ -699,11 +432,11 @@ export const environments = {
       {
         id: 'dockerdesktop',
         name: 'Docker Desktop',
-        description: '适合容器开发、Dev Container 和本地服务编排。',
+        description: '跑 Web UI、向量库或相关服务依赖时，经常会需要它。',
         automation: 'guided',
         officialUrl: 'https://docs.docker.com/desktop/setup/install/windows-install/',
         tags: ['Docker', '容器'],
-        searchTerms: ['docker', 'container', 'devcontainer'],
+        searchTerms: ['docker', 'container', 'devcontainer', '本地推理'],
         note: '通常还会涉及 WSL2 / Hyper-V、首次启动和 docker-users 组设置。',
         managerActions: managerActions(
           manualAction('建议按 Docker 官方 Windows 文档安装，避免 WSL2 / Hyper-V 细节被一键脚本掩盖。', 'https://docs.docker.com/desktop/setup/install/windows-install/'),
@@ -713,11 +446,11 @@ export const environments = {
       {
         id: 'pytorch',
         name: 'PyTorch',
-        description: '主流深度学习框架，适合研究和工程实验。',
+        description: '如果你要写本地模型实验、推理脚本或课程作业，通常会先装它。',
         automation: 'guided',
         officialUrl: 'https://pytorch.org/get-started/locally/',
         tags: ['AI', '深度学习', 'Python'],
-        searchTerms: ['pytorch', 'torch', 'deep learning'],
+        searchTerms: ['pytorch', 'torch', 'deep learning', '本地推理'],
         dependencies: ['python'],
         managerActions: managerActions(
           action(
@@ -733,38 +466,17 @@ export const environments = {
             {
               note: '默认安装 CPU 版本；如需 CUDA，请在官方安装页选择精确命令。'
             }
-          )
-        )
-      },
-      {
-        id: 'tensorflow',
-        name: 'TensorFlow',
-        description: '工业常见深度学习框架，Windows 下更适合 CPU 或 WSL2 路线。',
-        automation: 'guided',
-        officialUrl: 'https://www.tensorflow.org/install/pip',
-        tags: ['AI', '深度学习', 'Python'],
-        searchTerms: ['tensorflow', 'machine learning'],
-        dependencies: ['python'],
-        note: 'Windows 上 GPU 路线更适合走 WSL2；纯 Windows 推荐先装 CPU 版。',
-        managerActions: managerActions(
-          action(
-            [pythonCommand('-m pip install tensorflow')],
-            [pythonCommand('-m pip uninstall -y tensorflow')]
-          ),
-          action(
-            [pythonCommand('-m pip install tensorflow')],
-            [pythonCommand('-m pip uninstall -y tensorflow')]
           )
         )
       },
       {
         id: 'cuda',
         name: 'CUDA Toolkit',
-        description: 'NVIDIA GPU 加速工具链，适合深度学习与本地推理。',
+        description: '只有在你明确需要 GPU 加速时再补它，先跑通 CPU 路线会更稳。',
         automation: 'manual',
         officialUrl: 'https://developer.nvidia.com/cuda-downloads',
         tags: ['GPU', 'AI'],
-        searchTerms: ['cuda', 'nvidia', 'gpu'],
+        searchTerms: ['cuda', 'nvidia', 'gpu', '本地推理'],
         note: '强依赖显卡型号、驱动和系统环境，当前不建议对外承诺真一键。',
         managerActions: managerActions(
           manualAction('请按 NVIDIA 官方页面选择显卡和系统后安装 CUDA。', 'https://developer.nvidia.com/cuda-downloads'),

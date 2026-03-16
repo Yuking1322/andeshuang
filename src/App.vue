@@ -355,8 +355,8 @@ function formatLocalAuthError(error) {
     <section v-if="authStatus === 'loading'" class="loading-screen">
       <div class="loading-card">
         <p class="loading-label">安的爽 · Session Boot</p>
-        <h1>正在连接你的控制台</h1>
-        <p>正在检查登录状态并准备控制台工作区。</p>
+        <h1>正在连接你的环境工作台</h1>
+        <p>正在检查登录状态，并准备你的 Windows 环境向导。</p>
       </div>
     </section>
 
@@ -367,23 +367,24 @@ function formatLocalAuthError(error) {
           <div class="entry-brand-mark">
             <img src="/lightning-mark.svg" alt="安的爽闪电标识">
           </div>
-          <h1>先登录，再进入你的环境控制台。</h1>
+          <h1>先登录，再让系统告诉你这台电脑还缺什么。</h1>
           <p class="entry-description">
-            安的爽现在采用强制登录流程。登录后你可以使用体检、安装、后悔药、预置傻瓜包下载，以及后续的配置同步能力。
+            安的爽不是重新发明包管理器，而是把体检、场景判断、版本取舍、脚本生成和排障串成一条中文工作流。
+            更适合学生、转行自学者和小团队在 Windows 上搭第一套开发环境。
           </p>
 
           <div class="entry-metrics">
             <article>
               <strong>{{ totalCategories }}</strong>
-              <span>环境方向</span>
+              <span>核心场景</span>
             </article>
             <article>
               <strong>{{ totalPackages }}</strong>
-              <span>组件数量</span>
+              <span>可选组件</span>
             </article>
             <article>
               <strong>Windows</strong>
-              <span>当前完整支持</span>
+              <span>当前优先支持</span>
             </article>
           </div>
         </div>
@@ -542,9 +543,9 @@ function formatLocalAuthError(error) {
           </div>
 
           <div class="entry-notes">
-            <span>Cloudflare Pages + Functions</span>
-            <span>支持一键体检与后悔药</span>
-            <span>支持静态傻瓜包分发</span>
+            <span>先体检再补齐</span>
+            <span>支持场景包快速起步</span>
+            <span>兼容 Chocolatey + Scoop</span>
           </div>
         </div>
       </div>
@@ -564,20 +565,20 @@ function formatLocalAuthError(error) {
             </div>
             <div class="chrome-brand-copy">
               <strong>安的爽</strong>
-              <span>Environment Control Console</span>
+              <span>Windows Environment Guide</span>
             </div>
           </div>
         </div>
 
         <div class="chrome-right">
-          <span class="chrome-pill">{{ totalCategories }} 个方向</span>
+          <span class="chrome-pill">{{ totalCategories }} 个场景</span>
           <span class="chrome-pill">{{ totalPackages }} 个组件</span>
           <div class="chrome-nav">
             <el-button :type="activeView === 'console' ? 'primary' : 'default'" class="chrome-nav-button" @click="activeView = 'console'">
               控制台
             </el-button>
             <el-button :type="activeView === 'guide' ? 'primary' : 'default'" class="chrome-nav-button" @click="activeView = 'guide'">
-              操作文档
+              上手引导
             </el-button>
             <el-button
               v-if="sessionIsAdmin"
@@ -602,9 +603,9 @@ function formatLocalAuthError(error) {
         <aside class="command-rail">
           <section class="rail-card rail-brand">
             <p class="rail-label">System Console</p>
-            <h1>一套更像桌面应用的开发环境控制台</h1>
+            <h1>一个更像环境顾问的 Windows 开发环境工作台</h1>
             <p class="rail-copy">
-              把检测、决策、安装串成同一条工作流，让用户随时知道自己还差什么。
+              先看清现状，再判断该补什么和为什么补，最后再交给脚本执行。
             </p>
           </section>
 
@@ -617,7 +618,7 @@ function formatLocalAuthError(error) {
               </article>
               <article class="status-tile">
                 <strong>{{ dashboardState.selectedPendingCount }}</strong>
-                <span>待安装</span>
+                <span>待补齐</span>
               </article>
               <article class="status-tile">
                 <strong>{{ dashboardState.detectedInstalledCount }}</strong>
@@ -647,15 +648,15 @@ function formatLocalAuthError(error) {
             <article class="flow-row">
               <span class="flow-code">02</span>
               <div>
-                <strong>再选择</strong>
-                <p>勾选要补齐的环境。</p>
+                <strong>按场景补齐</strong>
+                <p>只选当前目标真正需要的环境。</p>
               </div>
             </article>
             <article class="flow-row">
               <span class="flow-code">03</span>
               <div>
-                <strong>最后安装</strong>
-                <p>下载脚本后直接执行。</p>
+                <strong>最后执行脚本</strong>
+                <p>确认方案后，再下载并运行脚本。</p>
               </div>
             </article>
           </section>
@@ -663,7 +664,7 @@ function formatLocalAuthError(error) {
           <section class="rail-card rail-account">
             <p class="rail-section-title">当前账户</p>
             <h2>{{ sessionUser?.name || sessionUser?.username }}</h2>
-            <p>LinuxDO 已连接。后续可扩展体检历史、云端环境模板和个人同步配置。</p>
+            <p>LinuxDO 已连接。后续可扩展体检历史、团队模板和个人同步配置。</p>
             <div class="account-meta">
               <span>@{{ sessionUser?.username }}</span>
               <span v-if="sessionUser?.trustLevel !== null">信任等级 {{ sessionUser?.trustLevel }}</span>
@@ -676,17 +677,17 @@ function formatLocalAuthError(error) {
             <section class="workspace-hero">
               <div class="workspace-heading">
                 <p class="workspace-label">Workspace</p>
-                <h2>先体检，再配置，再一键执行。</h2>
+                <h2>先看清现状，再补齐真正需要的环境。</h2>
               </div>
 
               <p class="workspace-description">
-                中间是主流程区域，顶部导航里的“操作文档”负责讲清楚怎么用；AI 助手则固定在页面右侧，随时给用户解释为什么这样选。
+                中间区域负责体检、场景选择和脚本生成；顶部的“上手引导”讲清楚流程，右侧 AI 则随时解释为什么这样选、哪个版本更稳。
               </p>
 
               <div class="workspace-pills">
-                <span>{{ totalCategories }} 个环境方向</span>
+                <span>{{ totalCategories }} 个核心场景</span>
                 <span>{{ totalPackages }} 个可选组件</span>
-                <span>{{ dashboardState.selectedPendingCount }} 项待安装</span>
+                <span>{{ dashboardState.selectedPendingCount }} 项待补齐</span>
                 <span>{{ runtimeStatus }}</span>
               </div>
             </section>

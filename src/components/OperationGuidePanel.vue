@@ -31,17 +31,17 @@ const guideCards = computed(() => [
     key: 'login',
     step: '01',
     badge: '已解锁',
-    title: '先登录，再开始整机配置',
-    description: '控制台、体检、脚本下载和后悔药都在这一条工作流里，不需要再来回切页面。',
-    hint: '你现在已经进入控制台，可以直接从体检或选环境开始。',
+    title: '先登录，进入你的环境向导工作台',
+    description: '体检、场景判断、脚本下载和后悔药都在同一条工作流里，不需要来回切页面。',
+    hint: '你现在已经进入工作台，可以直接从体检或选场景开始。',
     tone: 'steady'
   },
   {
     key: 'detection',
     step: '02',
     badge: hasDetectionData.value ? '已导入' : '推荐',
-    title: '先做一次一键体检',
-    description: '下载体检器并导回 JSON 后，系统就知道哪些软件已安装，生成脚本时会自动跳过。',
+    title: '先做一次一键体检，别急着装',
+    description: '先让系统看清这台电脑已经有什么，再决定还要补什么，能明显减少重复安装和误判。',
     hint: hasDetectionData.value
       ? `当前已经导入体检结果，已识别 ${dashboard.value.detectedInstalledCount || 0} 项。`
       : '下载体检器 -> 双击运行 -> 导回桌面的 andeshuang-detection.json',
@@ -51,8 +51,8 @@ const guideCards = computed(() => [
     key: 'selection',
     step: '03',
     badge: selectedCount.value > 0 ? '进行中' : '下一步',
-    title: '按场景勾选你真正要补的环境',
-    description: '支持关键词搜索、分类筛选、版本选择和依赖补齐，不用让用户自己拼命查安装顺序。',
+    title: '按场景补齐，不要把包全装一遍',
+    description: '支持关键词搜索、分类筛选、版本选择和依赖补齐，重点是装得对，而不是装得多。',
     hint: selectedCount.value > 0
       ? `当前已选 ${selectedCount.value} 项，自动补齐依赖 ${dashboard.value.autoDependencyCount || 0} 项。`
       : '可以直接搜 Python、Docker、Node.js、数据库、AI 这类关键词。',
@@ -62,10 +62,10 @@ const guideCards = computed(() => [
     key: 'script',
     step: '04',
     badge: selectedCount.value > 0 ? '可执行' : '待选择',
-    title: '最后生成安装脚本或后悔药',
+    title: '确认方案后，再生成脚本或后悔药',
     description: '脚本会按你当前选择的版本和安装策略生成；需要回滚时，也能直接导出卸载脚本。',
     hint: selectedCount.value > 0
-      ? `当前将以 ${installerLabel.value} 为主，待安装 ${dashboard.value.selectedPendingCount || 0} 项。`
+      ? `当前将以 ${installerLabel.value} 为主，待补齐 ${dashboard.value.selectedPendingCount || 0} 项。`
       : '至少勾选一个环境后，安装脚本和后悔药按钮才会真正有意义。',
     tone: selectedCount.value > 0 ? 'accent' : 'neutral'
   },
@@ -73,9 +73,9 @@ const guideCards = computed(() => [
     key: 'preset',
     step: '05',
     badge: '备用',
-    title: '不想细选时，直接下预置傻瓜包',
-    description: '预置包适合想马上起步的用户；如果执行失败，优先去看脚本旁边自动生成的日志。',
-    hint: '右下方的环境控制台和右侧 AI 助手可以一起配合使用，先问再选会更稳。',
+    title: '时间紧时，直接用场景包起步',
+    description: '预置包适合想马上跑起来的用户；如果执行失败，优先去看脚本旁边自动生成的日志。',
+    hint: '右侧 AI 助手可以一起配合使用，先问再选通常会更稳。',
     tone: 'steady'
   }
 ])
@@ -85,17 +85,17 @@ const guideCards = computed(() => [
   <section class="guide-shell">
     <div class="guide-header">
       <div>
-        <p class="guide-label">操作文档</p>
-        <h2>第一次来，就按这 5 步往下走</h2>
+        <p class="guide-label">上手引导</p>
+        <h2>第一次配 Windows 开发环境，就按这 5 步走</h2>
         <p class="guide-copy">
-          这块放的不是营销话术，而是给第一次使用的同学看的实际操作路线。先看这块，再往下配环境，理解成本会低很多。
+          这块放的不是营销话术，而是给第一次配环境的同学和新成员看的实际路线。先看这块，再往下配环境，理解成本会低很多。
         </p>
       </div>
 
       <div class="guide-metrics">
-        <span>{{ totalCategories }} 个环境方向</span>
+        <span>{{ totalCategories }} 个核心场景</span>
         <span>{{ totalPackages }} 个可选组件</span>
-        <span>{{ dashboard.selectedPendingCount || 0 }} 项待安装</span>
+        <span>{{ dashboard.selectedPendingCount || 0 }} 项待补齐</span>
         <span>{{ hasDetectionData ? '已导入体检结果' : '尚未导入体检结果' }}</span>
       </div>
     </div>

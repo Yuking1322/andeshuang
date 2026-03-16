@@ -144,29 +144,20 @@ else:
 $results = [ordered]@{}
 
 $results.nodejs = Get-CommandInstall 'node'
-$results.bun = Get-CommandInstall 'bun'
-$results.deno = Get-CommandInstall 'deno'
 $results.git = Get-CommandInstall 'git'
 $results.vscode = Merge-Result (Get-CommandInstall 'code') (Get-RegistryInstall @('Visual Studio Code'))
-$results.yarn = Get-CommandInstall 'yarn'
 $results.pnpm = Get-CommandInstall 'pnpm'
 $results.uv = Get-CommandInstall 'uv'
 $results.python = Get-CommandInstall 'python'
-$results.pipx = Get-CommandInstall 'pipx'
 $results.jupyterlab = Merge-Result (Get-CommandInstall 'jupyter-lab' @('--version')) (Get-CommandInstall 'jupyter' @('lab', '--version'))
 $results.openjdk = Merge-Result (Get-CommandInstall 'java' @('-version')) (Get-RegistryInstall @('OpenJDK', 'Temurin', 'JDK'))
-$results.dotnet = Get-CommandInstall 'dotnet'
-$results.go = Get-CommandInstall 'go' @('version')
-$results.rust = Get-CommandInstall 'rustc' @('--version')
 $results.mysql = Merge-Result (Get-CommandInstall 'mysql') (Get-RegistryInstall @('MySQL'))
 $results.redis = Merge-Result (Get-CommandInstall 'redis-server') (Merge-Result (Get-ServiceInstall @('Redis*')) (Get-RegistryInstall @('Redis')))
 $results.postgresql = Merge-Result (Get-CommandInstall 'psql') (Merge-Result (Get-ServiceInstall @('postgresql*')) (Get-RegistryInstall @('PostgreSQL')))
-$results.mongodb = Merge-Result (Get-CommandInstall 'mongod') (Merge-Result (Get-ServiceInstall @('MongoDB*')) (Get-RegistryInstall @('MongoDB')))
 $results.ollama = Merge-Result (Get-CommandInstall 'ollama') (Get-RegistryInstall @('Ollama'))
 $results.dockerdesktop = Merge-Result (Get-CommandInstall 'docker') (Get-RegistryInstall @('Docker Desktop'))
 
 $condaResult = Get-CommandInstall 'conda'
-$results.anaconda = New-Result $false
 $results.miniconda = New-Result $false
 if ($condaResult.installed) {
   $condaBase = ''
@@ -178,15 +169,10 @@ if ($condaResult.installed) {
 
   if ($condaBase -like '*mini*') {
     $results.miniconda = $condaResult
-  } elseif ($condaBase -like '*ana*') {
-    $results.anaconda = $condaResult
-  } else {
-    $results.anaconda = $condaResult
   }
 }
 
 $results.pytorch = Test-PythonModule 'torch'
-$results.tensorflow = Test-PythonModule 'tensorflow'
 $results.cuda = Merge-Result (Get-CommandInstall 'nvcc' @('--version')) (Get-RegistryInstall @('NVIDIA CUDA'))
 
 $payload = [ordered]@{

@@ -18,6 +18,10 @@ import {
   getDetectionEntry,
   normalizeDetectionPayload
 } from '../utils/detectionScript.js'
+import {
+  getDetectionBaselineInsight,
+  getDetectionSceneInsights
+} from '../utils/detectionInsights.js'
 import { getClientPlatform } from '../utils/platform.js'
 
 const DETECTION_STORAGE_KEY = 'andeshuang-detection-snapshot'
@@ -32,9 +36,9 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'dashboard-update'])
 
-const quickSearchOptions = ['Python', 'Docker', 'Ollama', 'Java', '.NET', 'Rust', '数据库', 'AI']
+const quickSearchOptions = ['前端', 'Python', 'Jupyter', 'Java', 'MySQL', 'Redis', 'Ollama', 'Docker']
 const filterTabs = [
-  { id: 'all', label: '全部环境', icon: '✨' },
+  { id: 'all', label: '全部场景', icon: '✨' },
   ...Object.entries(environments).map(([key, env]) => ({
     id: key,
     label: env.name,
@@ -98,8 +102,8 @@ const previewTitle = computed(() =>
 )
 const managerSummary = computed(() =>
   useChocolatey.value
-    ? 'Chocolatey 更适合系统级完整安装，管理员权限下覆盖面更广。'
-    : 'Scoop 更轻量，适合偏开发者工具链和普通权限安装。'
+    ? '底层会优先走 Chocolatey，适合系统级完整安装；安的爽负责上层判断、依赖补齐和脚本编排。'
+    : '底层会优先走 Scoop，适合更轻量的开发者工具链；安的爽负责上层判断、依赖补齐和脚本编排。'
 )
 const detectionSummary = computed(() => {
   if (!hasDetectionData.value) {
@@ -122,6 +126,8 @@ const formattedDetectionTime = computed(() => {
     minute: '2-digit'
   }).format(parsed)
 })
+const detectionBaselineInsight = computed(() => getDetectionBaselineInsight(detectionSnapshot.value))
+const detectionSceneInsights = computed(() => getDetectionSceneInsights(detectionSnapshot.value))
 const presetDownloads = computed(() =>
   windowsPresetDownloads.map((item) => ({
     ...item,
@@ -346,6 +352,35 @@ const clearDetectionSnapshot = () => {
   ElMessage.info('已清除体检结果')
 }
 
+const applySuggestedPackages = (packageIds, sceneLabel, targetTab = 'all') => {
+  const nextIds = packageIds.filter((id) => !selectedPackages.value.includes(id))
+
+  if (!nextIds.length) {
+    ElMessage.info(`${sceneLabel} 需要补齐的项已经在列表里了`)
+    return
+  }
+
+  nextIds.forEach((packageId) => {
+    const packageConfig = resolvePackageConfig(packageId, selectedVersions.value)
+    if (packageConfig) {
+      ensureVersionSelection(packageConfig)
+    }
+  })
+
+  selectedPackages.value = [...selectedPackages.value, ...nextIds]
+  activeTab.value = targetTab
+  emitSelection()
+  ElMessage.success(`已把 ${sceneLabel} 还缺的 ${nextIds.length} 项加入待补齐列表`)
+}
+
+const applyBaselineSuggestion = () => {
+  applySuggestedPackages(detectionBaselineInsight.value.actionablePackageIds, detectionBaselineInsight.value.label, 'all')
+}
+
+const applySceneSuggestion = (insight) => {
+  applySuggestedPackages(insight.actionablePackageIds, insight.name, insight.id)
+}
+
 function ensureWindowsAction() {
   if (isWindowsPlatform.value) return true
 
@@ -505,6 +540,66 @@ function applyQuickSearch(term) {
               最近体检：{{ formattedDetectionTime }}<span v-if="detectionSnapshot.machineName"> · {{ detectionSnapshot.machineName }}</span>
             </template>
           </p>
+
+          <div v-if="hasDetectionData" class="diagnosis-shell">
+            <div :class="['diagnosis-baseline', `is-${detectionBaselineInsight.tone}`]">
+              <div>
+                <p class="planner-label">体检解读</p>
+                <p class="diagnosis-copy">{{ detectionBaselineInsight.summary }}</p>
+              </div>
+              <el-button
+                v-if="detectionBaselineInsight.actionablePackageIds.length"
+                plain
+                size="small"
+                @click="applyBaselineSuggestion"
+              >
+                补齐通用基础
+              </el-button>
+            </div>
+
+            <div class="diagnosis-grid">
+              <article
+                v-for="insight in detectionSceneInsights"
+                :key="insight.id"
+                :class="['diagnosis-card', `is-${insight.tone}`]"
+              >
+                <div class="diagnosis-head">
+                  <div>
+                    <p class="diagnosis-label">{{ insight.icon }} {{ insight.name }}</p>
+                    <strong>{{ insight.statusLabel }}</strong>
+                  </div>
+                  <span class="diagnosis-progress">{{ insight.progressText }}</span>
+                </div>
+
+                <p class="diagnosis-copy">{{ insight.capability }}</p>
+
+                <div class="diagnosis-row">
+                  <span>已具备</span>
+                  <strong>{{ insight.presentText }}</strong>
+                </div>
+
+                <div class="diagnosis-row">
+                  <span>还差</span>
+                  <strong>{{ insight.missingText }}</strong>
+                </div>
+
+                <div class="diagnosis-row">
+                  <span>下一步</span>
+                  <strong>{{ insight.nextStep }}</strong>
+                </div>
+
+                <el-button
+                  v-if="insight.actionablePackageIds.length"
+                  plain
+                  size="small"
+                  class="diagnosis-action"
+                  @click="applySceneSuggestion(insight)"
+                >
+                  {{ insight.actionLabel }}
+                </el-button>
+              </article>
+            </div>
+          </div>
         </div>
 
         <input
@@ -520,22 +615,22 @@ function applyQuickSearch(term) {
         <div class="module-body">
           <div class="module-header">
             <div>
-              <p class="module-label">配置环境</p>
-              <h3>决定这台电脑真正还缺什么</h3>
+              <p class="module-label">场景规划</p>
+              <h3>决定为了你的目标，这台电脑还缺什么</h3>
             </div>
-            <span class="module-chip warm">{{ selectedPendingCount }} 项待安装</span>
+            <span class="module-chip warm">{{ selectedPendingCount }} 项待补齐</span>
           </div>
 
           <p class="module-copy">
-            这轮已经扩成真正的环境库：支持搜索、筛选、版本选择和不同自动化等级，不再只有“勾选几个包”这么简单。
+            这里不是让你把包全装一遍，而是按目标场景挑真正需要的环境、版本和依赖。
           </p>
 
           <div v-if="!isWindowsPlatform" class="platform-alert">
-            当前检测到 {{ platformInfo.label }}。v1 只完整支持 Windows 的体检、安装脚本和预置傻瓜包分发。
+            当前检测到 {{ platformInfo.label }}。v1 只完整支持 Windows 的体检、脚本执行和场景包分发。
           </div>
 
           <div class="planner-block">
-            <p class="planner-label">安装策略</p>
+            <p class="planner-label">底层安装通道</p>
             <el-radio-group v-model="useChocolatey">
               <el-radio :value="true">Chocolatey（覆盖更广）</el-radio>
               <el-radio :value="false">Scoop（更轻量）</el-radio>
@@ -570,9 +665,9 @@ function applyQuickSearch(term) {
       <div class="module-body">
         <div class="module-header">
           <div>
-            <p class="module-label">Windows 傻瓜包</p>
-            <h3>直接下载预置好的常用环境包</h3>
-            <p class="module-copy compact">我顺手把预置包也扩了一轮，适合不想自己从零勾选的用户。</p>
+            <p class="module-label">起步场景包</p>
+            <h3>不想细选时，直接下载预置好的起步方案</h3>
+            <p class="module-copy compact">更适合第一次搭环境的同学，先跑起来，再回头精调。</p>
           </div>
           <span class="module-chip warm">静态分发</span>
         </div>
@@ -592,7 +687,7 @@ function applyQuickSearch(term) {
         </div>
 
         <div v-else class="platform-alert">
-          当前检测到 {{ platformInfo.label }}。预置傻瓜包目前只提供 Windows 版本，后续再补 Linux 脚本分发。
+          当前检测到 {{ platformInfo.label }}。预置场景包目前只提供 Windows 版本，后续再补 Linux 脚本分发。
         </div>
 
         <div class="trouble-box">
@@ -612,10 +707,10 @@ function applyQuickSearch(term) {
       <div class="module-body library-body">
         <div class="module-header">
           <div>
-            <p class="module-label">环境软件库</p>
-            <h3>搜索你真正想配置的环境</h3>
+            <p class="module-label">环境顾问库</p>
+            <h3>按你的目标搜索真正要补的环境</h3>
             <p class="module-copy compact">
-              支持全局搜索、环境分类、自动化等级筛选和版本选择。很多环境都会给出推荐版本，但不会强迫用户接受默认值。
+              支持全局搜索、环境分类、自动化等级筛选和版本选择。重点不是装得多，而是装得对。
             </p>
           </div>
           <div class="library-tags">
@@ -629,7 +724,7 @@ function applyQuickSearch(term) {
         <div class="search-shell">
           <el-input
             v-model="searchQuery"
-            placeholder="搜索环境、语言、工具或场景，例如 Python / Docker / Ollama / Rust"
+            placeholder="搜索场景、语言或工具，例如 前端 / Python / Java / Ollama / Jupyter"
             clearable
             size="large"
             class="search-input"
@@ -695,7 +790,7 @@ function applyQuickSearch(term) {
 
             <div v-if="filteredGroups.length === 0" class="empty-state">
               <h4>没有找到符合条件的环境</h4>
-              <p>试试清空筛选，或者换一个关键词，比如 Python、Docker、Ollama、数据库、Rust。</p>
+              <p>试试清空筛选，或者换一个关键词，比如 前端、Python、Java、MySQL、Ollama。</p>
             </div>
 
             <div
@@ -1003,6 +1098,126 @@ function applyQuickSearch(term) {
   color: #6a7c78;
   font-size: 13px;
   line-height: 1.75;
+}
+
+.diagnosis-shell {
+  margin-top: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.diagnosis-baseline {
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(18, 40, 37, 0.06);
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.diagnosis-baseline.is-success {
+  background: rgba(47, 117, 105, 0.08);
+  border-color: rgba(47, 117, 105, 0.14);
+}
+
+.diagnosis-baseline.is-warning {
+  background: rgba(196, 123, 54, 0.1);
+  border-color: rgba(196, 123, 54, 0.14);
+}
+
+.diagnosis-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.diagnosis-card {
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(18, 40, 37, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+  display: grid;
+  gap: 10px;
+}
+
+.diagnosis-card.is-success {
+  background: linear-gradient(180deg, rgba(240, 248, 245, 0.98) 0%, rgba(255, 255, 255, 0.96) 100%);
+  border-color: rgba(47, 117, 105, 0.16);
+}
+
+.diagnosis-card.is-steady {
+  background: linear-gradient(180deg, rgba(247, 249, 247, 0.98) 0%, rgba(255, 255, 255, 0.96) 100%);
+}
+
+.diagnosis-card.is-warning,
+.diagnosis-card.is-danger {
+  background: linear-gradient(180deg, rgba(251, 246, 240, 0.98) 0%, rgba(255, 255, 255, 0.96) 100%);
+  border-color: rgba(196, 123, 54, 0.16);
+}
+
+.diagnosis-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.diagnosis-label {
+  margin: 0;
+  color: #8a7355;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.diagnosis-head strong {
+  display: block;
+  margin-top: 6px;
+  color: #162b28;
+  font-size: 18px;
+}
+
+.diagnosis-progress {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(18, 40, 37, 0.06);
+  color: #566966;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.diagnosis-copy {
+  margin: 0;
+  color: #647673;
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.diagnosis-row {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(18, 40, 37, 0.04);
+  display: grid;
+  gap: 4px;
+}
+
+.diagnosis-row span {
+  color: #7a8b88;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.diagnosis-row strong {
+  color: #1c302d;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.diagnosis-action {
+  justify-self: flex-start;
 }
 
 .planner-block {
@@ -1451,6 +1666,10 @@ function applyQuickSearch(term) {
   .module-grid {
     grid-template-columns: 1fr;
   }
+
+  .diagnosis-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 820px) {
@@ -1490,6 +1709,10 @@ function applyQuickSearch(term) {
 
   .module-header,
   .title-row {
+    flex-direction: column;
+  }
+
+  .diagnosis-baseline {
     flex-direction: column;
   }
 }

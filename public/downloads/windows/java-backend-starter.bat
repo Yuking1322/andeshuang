@@ -61,76 +61,78 @@ echo.
 echo [开始] 执行 安装流程...
 echo [开始] 执行 安装流程... >> "%LOGFILE%"
 echo.
-echo [安装] uv
-echo [安装] uv >> "%LOGFILE%"
-echo [提示] uv 使用官方安装脚本，安装后可直接管理 Python 与依赖。
-echo [提示] uv 使用官方安装脚本，安装后可直接管理 Python 与依赖。 >> "%LOGFILE%"
+echo [安装] Git
+echo [安装] Git >> "%LOGFILE%"
 set "PACKAGE_FAILED="
-call powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex" >> "%LOGFILE%" 2>&1
+call choco install git -y --no-progress >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
 if defined PACKAGE_FAILED (
-  echo [失败] uv
-  echo [失败] uv >> "%LOGFILE%"
+  echo [失败] Git
+  echo [失败] Git >> "%LOGFILE%"
   set /a FAILED_COUNT+=1
 ) else (
-  echo [成功] uv
-  echo [成功] uv >> "%LOGFILE%"
+  echo [成功] Git
+  echo [成功] Git >> "%LOGFILE%"
 )
 echo.
-echo [安装] Python · 3.13 推荐
-echo [安装] Python · 3.13 推荐 >> "%LOGFILE%"
-echo [提示] Python 版本通过 uv 管理，适合需要多版本切换的开发环境。
-echo [提示] Python 版本通过 uv 管理，适合需要多版本切换的开发环境。 >> "%LOGFILE%"
+echo [安装] Visual Studio Code
+echo [安装] Visual Studio Code >> "%LOGFILE%"
 set "PACKAGE_FAILED="
-call powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex" >> "%LOGFILE%" 2>&1
-if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
-call "%USERPROFILE%\.local\bin\uv.exe" python install 3.13 --default >> "%LOGFILE%" 2>&1
+call choco install vscode -y --no-progress >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
 if defined PACKAGE_FAILED (
-  echo [失败] Python · 3.13 推荐
-  echo [失败] Python · 3.13 推荐 >> "%LOGFILE%"
+  echo [失败] Visual Studio Code
+  echo [失败] Visual Studio Code >> "%LOGFILE%"
   set /a FAILED_COUNT+=1
 ) else (
-  echo [成功] Python · 3.13 推荐
-  echo [成功] Python · 3.13 推荐 >> "%LOGFILE%"
+  echo [成功] Visual Studio Code
+  echo [成功] Visual Studio Code >> "%LOGFILE%"
 )
 echo.
-echo [安装] Miniconda
-echo [安装] Miniconda >> "%LOGFILE%"
+echo [安装] Temurin JDK · 21 LTS 推荐
+echo [安装] Temurin JDK · 21 LTS 推荐 >> "%LOGFILE%"
 set "PACKAGE_FAILED="
-call choco install miniconda3 -y --no-progress >> "%LOGFILE%" 2>&1
+call choco install temurin21jdk -y --no-progress >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
 if defined PACKAGE_FAILED (
-  echo [失败] Miniconda
-  echo [失败] Miniconda >> "%LOGFILE%"
+  echo [失败] Temurin JDK · 21 LTS 推荐
+  echo [失败] Temurin JDK · 21 LTS 推荐 >> "%LOGFILE%"
   set /a FAILED_COUNT+=1
 ) else (
-  echo [成功] Miniconda
-  echo [成功] Miniconda >> "%LOGFILE%"
+  echo [成功] Temurin JDK · 21 LTS 推荐
+  echo [成功] Temurin JDK · 21 LTS 推荐 >> "%LOGFILE%"
 )
 echo.
-echo [安装] JupyterLab
-echo [安装] JupyterLab >> "%LOGFILE%"
+echo [安装] MySQL
+echo [安装] MySQL >> "%LOGFILE%"
+echo [提示] 安装后通常还需要初始化 root 密码和服务配置。
+echo [提示] 安装后通常还需要初始化 root 密码和服务配置。 >> "%LOGFILE%"
 set "PACKAGE_FAILED="
-if "!PIP_MIRROR_READY!"=="0" (
-  echo [配置] 正在设置 pip 镜像...
-  echo [配置] 正在设置 pip 镜像... >> "%LOGFILE%"
-  call powershell -NoProfile -Command "$py = if (Test-Path \"$env:USERPROFILE\\.local\\bin\\python.exe\") { \"$env:USERPROFILE\\.local\\bin\\python.exe\" } else { 'python' }; & $py -m pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple" >> "%LOGFILE%" 2>&1
-  if !errorlevel! neq 0 (
-    echo [提示] pip 镜像设置失败，将继续使用默认配置。
-    echo [提示] pip 镜像设置失败。 >> "%LOGFILE%"
-  )
-  set "PIP_MIRROR_READY=1"
-)
-call powershell -NoProfile -Command "$py = if (Test-Path \"$env:USERPROFILE\\.local\\bin\\python.exe\") { \"$env:USERPROFILE\\.local\\bin\\python.exe\" } else { 'python' }; & $py -m pip install --break-system-packages jupyterlab" >> "%LOGFILE%" 2>&1
+call choco install mysql -y --no-progress >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
 if defined PACKAGE_FAILED (
-  echo [失败] JupyterLab
-  echo [失败] JupyterLab >> "%LOGFILE%"
+  echo [失败] MySQL
+  echo [失败] MySQL >> "%LOGFILE%"
   set /a FAILED_COUNT+=1
 ) else (
-  echo [成功] JupyterLab
-  echo [成功] JupyterLab >> "%LOGFILE%"
+  echo [成功] MySQL
+  echo [成功] MySQL >> "%LOGFILE%"
+)
+echo.
+echo [安装] Redis
+echo [安装] Redis >> "%LOGFILE%"
+echo [提示] Windows 环境下更适合作为本地开发依赖，正式生产建议使用 Linux 服务。
+echo [提示] Windows 环境下更适合作为本地开发依赖，正式生产建议使用 Linux 服务。 >> "%LOGFILE%"
+set "PACKAGE_FAILED="
+call choco install redis-64 -y --no-progress >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
+if defined PACKAGE_FAILED (
+  echo [失败] Redis
+  echo [失败] Redis >> "%LOGFILE%"
+  set /a FAILED_COUNT+=1
+) else (
+  echo [成功] Redis
+  echo [成功] Redis >> "%LOGFILE%"
 )
 echo.
 
