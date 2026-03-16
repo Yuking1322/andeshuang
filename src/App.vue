@@ -2,7 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import AdminDashboard from './components/AdminDashboard.vue'
+import AiAssistantPanel from './components/AiAssistantPanel.vue'
 import EnvironmentSelector from './components/EnvironmentSelector.vue'
+import OperationGuidePanel from './components/OperationGuidePanel.vue'
 import { environments } from './data/environments.js'
 import {
   beginLinuxDOLogin,
@@ -346,7 +348,7 @@ function formatLocalAuthError(error) {
 </script>
 
 <template>
-  <div class="desktop-shell">
+  <div :class="['desktop-shell', { 'authenticated-shell': authStatus === 'authenticated' }]">
     <div class="ambient ambient-one" />
     <div class="ambient ambient-two" />
 
@@ -574,6 +576,9 @@ function formatLocalAuthError(error) {
             <el-button :type="activeView === 'console' ? 'primary' : 'default'" class="chrome-nav-button" @click="activeView = 'console'">
               控制台
             </el-button>
+            <el-button :type="activeView === 'guide' ? 'primary' : 'default'" class="chrome-nav-button" @click="activeView = 'guide'">
+              操作文档
+            </el-button>
             <el-button
               v-if="sessionIsAdmin"
               :type="activeView === 'admin' ? 'primary' : 'default'"
@@ -667,28 +672,37 @@ function formatLocalAuthError(error) {
         </aside>
 
         <main class="workspace">
-          <section v-if="activeView === 'console'" class="workspace-hero">
-            <div class="workspace-heading">
-              <p class="workspace-label">Workspace</p>
-              <h2>先体检，再配置，再一键执行。</h2>
-            </div>
+          <template v-if="activeView === 'console'">
+            <section class="workspace-hero">
+              <div class="workspace-heading">
+                <p class="workspace-label">Workspace</p>
+                <h2>先体检，再配置，再一键执行。</h2>
+              </div>
 
-            <p class="workspace-description">
-              左侧常驻显示当前状态，右侧只保留真正需要操作的模块，尽量让信息更聚焦。
-            </p>
+              <p class="workspace-description">
+                中间是主流程区域，顶部导航里的“操作文档”负责讲清楚怎么用；AI 助手则固定在页面右侧，随时给用户解释为什么这样选。
+              </p>
 
-            <div class="workspace-pills">
-              <span>{{ totalCategories }} 个环境方向</span>
-              <span>{{ totalPackages }} 个可选组件</span>
-              <span>{{ dashboardState.selectedPendingCount }} 项待安装</span>
-              <span>{{ runtimeStatus }}</span>
-            </div>
-          </section>
+              <div class="workspace-pills">
+                <span>{{ totalCategories }} 个环境方向</span>
+                <span>{{ totalPackages }} 个可选组件</span>
+                <span>{{ dashboardState.selectedPendingCount }} 项待安装</span>
+                <span>{{ runtimeStatus }}</span>
+              </div>
+            </section>
 
-          <EnvironmentSelector
-            v-if="activeView === 'console'"
-            v-model="selectedPackages"
-            @dashboard-update="handleDashboardUpdate"
+            <EnvironmentSelector
+              v-model="selectedPackages"
+              @dashboard-update="handleDashboardUpdate"
+            />
+          </template>
+
+          <OperationGuidePanel
+            v-else-if="activeView === 'guide'"
+            :selected-package-ids="selectedPackages"
+            :dashboard-state="dashboardState"
+            :total-categories="totalCategories"
+            :total-packages="totalPackages"
           />
 
           <AdminDashboard
@@ -698,6 +712,13 @@ function formatLocalAuthError(error) {
         </main>
       </div>
     </div>
+
+    <aside v-if="authStatus === 'authenticated'" class="floating-assistant-shell">
+      <AiAssistantPanel
+        :selected-package-ids="selectedPackages"
+        :dashboard-state="dashboardState"
+      />
+    </aside>
 
     <el-dialog
       v-model="showLoginGuide"
@@ -731,6 +752,10 @@ function formatLocalAuthError(error) {
     radial-gradient(circle at top left, rgba(213, 164, 114, 0.24), transparent 24%),
     radial-gradient(circle at 84% 12%, rgba(88, 130, 121, 0.2), transparent 20%),
     linear-gradient(180deg, #eff1ec 0%, #e8ece9 48%, #eef1ef 100%);
+}
+
+.authenticated-shell {
+  padding-right: 372px;
 }
 
 .ambient {
@@ -1333,6 +1358,22 @@ function formatLocalAuthError(error) {
   font-size: 13px;
 }
 
+.floating-assistant-shell {
+  position: fixed;
+  top: 50%;
+  right: 18px;
+  transform: translateY(-50%);
+  width: 336px;
+  height: min(76vh, 760px);
+  display: flex;
+  z-index: 8;
+}
+
+.floating-assistant-shell > * {
+  flex: 1;
+  min-height: 0;
+}
+
 .desktop-footer {
   margin: 16px 0 0;
   text-align: center;
@@ -1363,6 +1404,21 @@ function formatLocalAuthError(error) {
   .command-rail {
     border-right: none;
     border-bottom: 1px solid rgba(14, 35, 33, 0.08);
+  }
+}
+
+@media (max-width: 1380px) {
+  .authenticated-shell {
+    padding-right: 18px;
+  }
+
+  .floating-assistant-shell {
+    position: static;
+    width: auto;
+    height: auto;
+    display: block;
+    transform: none;
+    margin-top: 18px;
   }
 }
 

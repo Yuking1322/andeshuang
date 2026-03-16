@@ -5,7 +5,6 @@ title 安的爽 - 开发环境一键安装
 :: 脚本来源: 安的爽 Windows 预置包
 :: 包管理器: Chocolatey
 :: 模式: 安装
-:: 更新时间: 2026-03-15
 
 :: 使用 PowerShell 生成可靠的时间戳
 for /f "delims=" %%i in ('powershell -NoProfile -Command "Get-Date -Format 'yyyyMMdd-HHmmss'"') do set "TIMESTAMP=%%i"

@@ -200,6 +200,37 @@ const adminLinks = computed(() => {
     }
   ]
 })
+const nextStepItems = computed(() => {
+  const items = []
+
+  if (!adminState.value.dashboards.webAnalytics) {
+    items.push('补上 Web Analytics 直达入口，并确认正式域名访问后已经开始累计统计。')
+  }
+
+  if (!adminState.value.dashboards.pagesProject) {
+    items.push('把 Pages 项目直达链接补进后台，减少后续排障时来回找控制台的成本。')
+  }
+
+  if (settings.value.registrationMode === 'invite_only' && stats.value.inviteCodeCount === 0) {
+    items.push('当前是邀请码模式，但没有可用邀请码，先生成一批再放用户进场。')
+  }
+
+  if (
+    stats.value.registrationLimit !== null &&
+    stats.value.remainingSlots !== null &&
+    stats.value.remainingSlots <= 3
+  ) {
+    items.push(`注册名额只剩 ${stats.value.remainingSlots} 个，提前决定是扩容还是临时收紧入口。`)
+  }
+
+  if (users.value.length === 0) {
+    items.push('先用一轮自测账号走完注册、登录、停用、恢复和删除流程，确认后台口径一致。')
+  }
+
+  items.push('按上线验收清单完整跑一遍 LinuxDO 登录、体检导入、脚本下载和后台权限隔离。')
+
+  return items.slice(0, 4)
+})
 
 function syncSettingsForm() {
   settingsForm.value = {
@@ -644,7 +675,7 @@ onMounted(() => {
         <section class="panel">
           <div class="panel-head">
             <div>
-              <p class=”eyebrow”>上线状态</p>
+              <p class="eyebrow">上线状态</p>
             </div>
           </div>
           <div class="check-list">
