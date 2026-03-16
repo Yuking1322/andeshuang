@@ -22,18 +22,10 @@ const draft = ref('')
 const pending = ref(false)
 const currentModel = ref('')
 const currentProvider = ref('')
-const messages = ref([
-  {
-    id: 'welcome',
-    role: 'assistant',
-    content: '我是安的爽的内置 AI 环境顾问。你可以直接问我该怎么选场景、什么版本更稳、为什么安装失败，或者让我给你一套更适合当前目标的方案。',
-    localOnly: true
-  }
-])
+const messages = ref([])
 const selectedCount = computed(() => props.selectedPackageIds.length)
 const dashboard = computed(() => props.dashboardState || {})
-const conversationMessages = computed(() => messages.value.filter((item) => !item.localOnly))
-const hasConversation = computed(() => conversationMessages.value.length > 0 || pending.value)
+const hasConversation = computed(() => messages.value.length > 0 || pending.value)
 
 const selectedPackageSummary = computed(() =>
   props.selectedPackageIds
@@ -63,10 +55,10 @@ const quickPrompts = computed(() => {
   }
 
   return [
+    '我还没做体检，为什么要先体检再选环境？',
     '我要搭一套稳一点的前端入门环境，推荐选什么？',
     '我想学 Python 数据分析，推荐一套入门配置。',
-    '我在配 Java 后端开发环境，第一批应该装哪些？',
-    '我想做本地 AI / 大模型实验，应该先装哪些？'
+    '我在配 Java 后端开发环境，第一批应该装哪些？'
   ]
 })
 
@@ -111,19 +103,11 @@ async function handleSend() {
 }
 
 function clearConversation() {
-  messages.value = [
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: '聊天记录已经清空。你可以继续问我选场景、版本取舍、脚本或排障。',
-      localOnly: true
-    }
-  ]
+  messages.value = []
 }
 
 function buildRequestMessages() {
   return messages.value
-    .filter((item) => !item.localOnly)
     .slice(-MAX_HISTORY)
     .map((item) => ({
       role: item.role,
@@ -151,8 +135,7 @@ function pushMessage(role, content, isError = false) {
       id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       role,
       content,
-      isError,
-      localOnly: false
+      isError
     }
   ]
 }
@@ -240,8 +223,8 @@ function formatAiError(error) {
 
     <div ref="chatBodyRef" class="assistant-chat">
       <div v-if="!hasConversation" class="chat-empty">
-        <strong>这里会显示对话记录</strong>
-        <p>发出问题后，你和 AI 的消息都会固定显示在这里，不会再被下面的输入区挤没。</p>
+        <strong>我是你的 AI 环境顾问</strong>
+        <p>现在可以直接问我场景推荐、版本取舍和排障建议。开始对话后，消息会稳定显示在这里。</p>
       </div>
 
       <article
@@ -482,6 +465,7 @@ function formatAiError(error) {
   border-radius: 18px;
   border: 1px dashed rgba(18, 40, 37, 0.12);
   background: rgba(255, 255, 255, 0.5);
+  align-self: start;
 }
 
 .chat-empty strong {

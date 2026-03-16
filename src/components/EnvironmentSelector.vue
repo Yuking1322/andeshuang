@@ -90,6 +90,7 @@ const installedPackageIds = computed(() =>
     .map(([id]) => id)
 )
 const detectedInstalledCount = computed(() => installedPackageIds.value.length)
+const planningUnlocked = computed(() => hasDetectionData.value)
 const pendingInstallIds = computed(() =>
   resolvedIds.value.filter((id) => !getDetectionEntry(detectionSnapshot.value, id).installed)
 )
@@ -138,6 +139,11 @@ const troubleshootingTips = [
   '日志会保存在脚本所在目录，文件名以 andeshuang-install 或 andeshuang-uninstall 开头。',
   '如果安装失败，优先检查管理员权限、网络代理、包源可用性和软件是否正在运行。',
   'CUDA、Docker Desktop 这类环境即使能触发安装，也经常还会要求额外确认或系统能力支持。'
+]
+const preflightTips = [
+  '先体检的意义是避免重复安装，也避免把“软件装了但路径没配好”误判成完全缺失。',
+  '导入 JSON 之后，系统会自动告诉你这台电脑能做什么、还差什么，再进入下一步更稳。',
+  '如果你只是想快速体验，也建议至少先跑一次体检，再决定是否下载预置场景包。'
 ]
 
 const filteredGroups = computed(() => {
@@ -600,6 +606,22 @@ function applyQuickSearch(term) {
               </article>
             </div>
           </div>
+
+          <div v-else class="preflight-shell">
+            <div class="platform-alert">
+              这里是强制第一步。先完成体检并导入结果，后面的场景规划、起步场景包和环境库才会解锁。
+            </div>
+            <div class="trouble-box preflight-box">
+              <div>
+                <p class="planner-label">为什么要先体检</p>
+                <p class="trouble-copy">先确认现状，再给方案，会比上来就装一堆软件稳很多。</p>
+              </div>
+
+              <ul>
+                <li v-for="tip in preflightTips" :key="tip">{{ tip }}</li>
+              </ul>
+            </div>
+          </div>
         </div>
 
         <input
@@ -611,7 +633,7 @@ function applyQuickSearch(term) {
         >
       </section>
 
-      <section class="console-module plan-module">
+      <section v-if="planningUnlocked" class="console-module plan-module">
         <div class="module-body">
           <div class="module-header">
             <div>
@@ -661,7 +683,7 @@ function applyQuickSearch(term) {
       </section>
     </div>
 
-    <section class="console-module preset-module">
+    <section v-if="planningUnlocked" class="console-module preset-module">
       <div class="module-body">
         <div class="module-header">
           <div>
@@ -703,7 +725,7 @@ function applyQuickSearch(term) {
       </div>
     </section>
 
-    <section class="console-module library-module">
+    <section v-if="planningUnlocked" class="console-module library-module">
       <div class="module-body library-body">
         <div class="module-header">
           <div>
@@ -1106,6 +1128,12 @@ function applyQuickSearch(term) {
   gap: 14px;
 }
 
+.preflight-shell {
+  margin-top: 18px;
+  display: grid;
+  gap: 14px;
+}
+
 .diagnosis-baseline {
   padding: 16px;
   border-radius: 22px;
@@ -1302,6 +1330,10 @@ function applyQuickSearch(term) {
   padding-left: 18px;
   color: #647673;
   line-height: 1.8;
+}
+
+.preflight-box {
+  margin-top: 0;
 }
 
 .search-shell {

@@ -64,12 +64,23 @@ const totalPackages = computed(() =>
 const runtimeStatus = computed(() =>
   dashboardState.value.hasDetectionData ? '已导入体检结果' : '尚未导入体检结果'
 )
+const planningUnlocked = computed(() => dashboardState.value.hasDetectionData)
 const installerLabel = computed(() =>
   dashboardState.value.useChocolatey ? 'Chocolatey' : 'Scoop'
 )
 const canUseLocalLogin = computed(() => localAuthConfig.value.enabled)
 const canUseLocalRegister = computed(() => localAuthConfig.value.registrationEnabled)
 const currentUserLabel = computed(() => sessionUser.value?.name || sessionUser.value?.username || '')
+const workspaceTitle = computed(() =>
+  planningUnlocked.value
+    ? '先看清现状，再补齐真正需要的环境。'
+    : '先完成体检，导入结果后再进入环境规划。'
+)
+const workspaceDescription = computed(() =>
+  planningUnlocked.value
+    ? '中间区域负责体检、场景选择和脚本生成；顶部的“上手引导”讲清楚流程，右侧 AI 则随时解释为什么这样选、哪个版本更稳。'
+    : '当前阶段先别急着选环境。先下载体检器、导回结果，让系统识别这台电脑已经具备什么，再解锁后面的场景规划。'
+)
 const entryModeTitleText = computed(() => {
   if (entryMode.value === 'localRegister' && localAuthConfig.value.inviteCodeRequired) {
     return '使用邀请码创建内测账号'
@@ -677,11 +688,11 @@ function formatLocalAuthError(error) {
             <section class="workspace-hero">
               <div class="workspace-heading">
                 <p class="workspace-label">Workspace</p>
-                <h2>先看清现状，再补齐真正需要的环境。</h2>
+                <h2>{{ workspaceTitle }}</h2>
               </div>
 
               <p class="workspace-description">
-                中间区域负责体检、场景选择和脚本生成；顶部的“上手引导”讲清楚流程，右侧 AI 则随时解释为什么这样选、哪个版本更稳。
+                {{ workspaceDescription }}
               </p>
 
               <div class="workspace-pills">
