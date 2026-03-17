@@ -81,6 +81,15 @@ const workspaceDescription = computed(() =>
     ? '中间区域负责体检、场景选择和脚本生成；顶部的“上手引导”讲清楚流程，右侧 AI 则随时解释为什么这样选、哪个版本更稳。'
     : '当前阶段先别急着选环境。先下载体检器、导回结果，让系统识别这台电脑已经具备什么，再解锁后面的场景规划。'
 )
+const selectedMetricValue = computed(() => (planningUnlocked.value ? dashboardState.value.selectedCount : '锁定'))
+const pendingMetricValue = computed(() => (planningUnlocked.value ? dashboardState.value.selectedPendingCount : '待解锁'))
+const installedMetricValue = computed(() => (planningUnlocked.value ? dashboardState.value.detectedInstalledCount : '未体检'))
+const dependencyMetricValue = computed(() => (planningUnlocked.value ? dashboardState.value.autoDependencyCount : '01'))
+const pendingMetricLabel = computed(() => (planningUnlocked.value ? '待补齐' : '下一步'))
+const dependencyMetricLabel = computed(() => (planningUnlocked.value ? '自动依赖' : '当前步骤'))
+const skipStatusText = computed(() =>
+  planningUnlocked.value ? `${dashboardState.value.skippedInstalledCount} 项` : '体检后才会计算'
+)
 const entryModeTitleText = computed(() => {
   if (entryMode.value === 'localRegister' && localAuthConfig.value.inviteCodeRequired) {
     return '使用邀请码创建内测账号'
@@ -624,25 +633,25 @@ function formatLocalAuthError(error) {
             <p class="rail-section-title">当前状态</p>
             <div class="status-grid">
               <article class="status-tile highlight">
-                <strong>{{ dashboardState.selectedCount }}</strong>
+                <strong>{{ selectedMetricValue }}</strong>
                 <span>已勾选</span>
               </article>
               <article class="status-tile">
-                <strong>{{ dashboardState.selectedPendingCount }}</strong>
-                <span>待补齐</span>
+                <strong>{{ pendingMetricValue }}</strong>
+                <span>{{ pendingMetricLabel }}</span>
               </article>
               <article class="status-tile">
-                <strong>{{ dashboardState.detectedInstalledCount }}</strong>
+                <strong>{{ installedMetricValue }}</strong>
                 <span>已识别</span>
               </article>
               <article class="status-tile">
-                <strong>{{ dashboardState.autoDependencyCount }}</strong>
-                <span>自动依赖</span>
+                <strong>{{ dependencyMetricValue }}</strong>
+                <span>{{ dependencyMetricLabel }}</span>
               </article>
             </div>
             <div class="status-notes">
               <p><span>体检</span><strong>{{ runtimeStatus }}</strong></p>
-              <p><span>跳过重复</span><strong>{{ dashboardState.skippedInstalledCount }} 项</strong></p>
+              <p><span>跳过重复</span><strong>{{ skipStatusText }}</strong></p>
               <p><span>安装方式</span><strong>{{ installerLabel }}</strong></p>
             </div>
           </section>
@@ -660,14 +669,14 @@ function formatLocalAuthError(error) {
               <span class="flow-code">02</span>
               <div>
                 <strong>按场景补齐</strong>
-                <p>只选当前目标真正需要的环境。</p>
+                <p>{{ planningUnlocked ? '只选当前目标真正需要的环境。' : '导入体检结果后，这一步才会解锁。' }}</p>
               </div>
             </article>
             <article class="flow-row">
               <span class="flow-code">03</span>
               <div>
                 <strong>最后执行脚本</strong>
-                <p>确认方案后，再下载并运行脚本。</p>
+                <p>{{ planningUnlocked ? '确认方案后，再下载并运行脚本。' : '先完成体检，再进入脚本阶段。' }}</p>
               </div>
             </article>
           </section>

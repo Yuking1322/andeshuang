@@ -25,6 +25,7 @@ const currentProvider = ref('')
 const messages = ref([])
 const selectedCount = computed(() => props.selectedPackageIds.length)
 const dashboard = computed(() => props.dashboardState || {})
+const hasDetectionData = computed(() => Boolean(dashboard.value.hasDetectionData))
 const hasConversation = computed(() => messages.value.length > 0 || pending.value)
 
 const selectedPackageSummary = computed(() =>
@@ -41,8 +42,29 @@ const selectedPackageSummary = computed(() =>
 const installerLabel = computed(() =>
   props.dashboardState?.useChocolatey ? 'Chocolatey' : 'Scoop'
 )
+const assistantStatusPills = computed(() => {
+  if (!hasDetectionData.value) {
+    return ['体检未完成', '先做体检', '再选场景']
+  }
+
+  return [
+    installerLabel.value,
+    `已选 ${selectedCount.value} 项`,
+    `待补齐 ${dashboard.value.selectedPendingCount || 0} 项`,
+    `已识别 ${dashboard.value.detectedInstalledCount || 0} 项`
+  ]
+})
 
 const quickPrompts = computed(() => {
+  if (!hasDetectionData.value) {
+    return [
+      '我还没做体检，为什么要先体检再选环境？',
+      '体检做完以后，系统会根据什么给我建议？',
+      '如果我只是第一次装环境，先选场景包还是先做体检？',
+      '导入体检结果后，我应该先看哪里？'
+    ]
+  }
+
   if (selectedPackageSummary.value.length > 0) {
     const names = selectedPackageSummary.value.slice(0, 3).map((item) => item.name).join('、')
 
@@ -55,7 +77,6 @@ const quickPrompts = computed(() => {
   }
 
   return [
-    '我还没做体检，为什么要先体检再选环境？',
     '我要搭一套稳一点的前端入门环境，推荐选什么？',
     '我想学 Python 数据分析，推荐一套入门配置。',
     '我在配 Java 后端开发环境，第一批应该装哪些？'
@@ -177,14 +198,14 @@ function formatAiError(error) {
     </div>
 
     <div class="assistant-stats">
-      <span>{{ installerLabel }}</span>
-      <span>已选 {{ selectedCount }} 项</span>
-      <span>待装 {{ dashboard.selectedPendingCount || 0 }} 项</span>
-      <span>已识别 {{ dashboard.detectedInstalledCount || 0 }} 项</span>
+      <span v-for="pill in assistantStatusPills" :key="pill">{{ pill }}</span>
     </div>
 
     <div class="assistant-context">
       <p class="context-title">当前上下文</p>
+      <p v-if="!hasDetectionData" class="context-empty">
+        现在还处在体检阶段。先跑一次体检并导入结果，我才能更准确地告诉你这台电脑适合哪条路线、还差什么。
+      </p>
       <div v-if="selectedPackageSummary.length" class="context-tags">
         <span v-for="item in selectedPackageSummary.slice(0, 4)" :key="item.id">
           {{ item.name }}
@@ -193,7 +214,7 @@ function formatAiError(error) {
           +{{ selectedPackageSummary.length - 4 }}
         </span>
       </div>
-      <p v-else class="context-empty">
+      <p v-else-if="hasDetectionData" class="context-empty">
         你还没勾选具体环境。现在更适合问“我该选什么”或“我这个场景推荐哪套组合”。
       </p>
     </div>
