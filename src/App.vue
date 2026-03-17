@@ -765,7 +765,7 @@ function formatLocalAuthError(error) {
 
 <style scoped>
 .desktop-shell {
-  min-height: 100vh;
+  height: 100vh;
   padding: 26px 18px 22px;
   position: relative;
   overflow: hidden;
@@ -1020,6 +1020,7 @@ function formatLocalAuthError(error) {
 .app-window {
   width: min(1420px, 100%);
   margin: 0 auto;
+  height: calc(100vh - 48px);
   border-radius: 36px;
   background: rgba(248, 248, 245, 0.76);
   border: 1px solid rgba(14, 35, 33, 0.08);
@@ -1028,6 +1029,8 @@ function formatLocalAuthError(error) {
   overflow: hidden;
   position: relative;
   z-index: 1;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .window-chrome {
@@ -1152,7 +1155,7 @@ function formatLocalAuthError(error) {
 .window-body {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
-  min-height: calc(100vh - 130px);
+  min-height: 0;
 }
 
 .command-rail {
@@ -1162,6 +1165,8 @@ function formatLocalAuthError(error) {
   border-right: 1px solid rgba(14, 35, 33, 0.08);
   background:
     linear-gradient(180deg, rgba(23, 36, 33, 0.98) 0%, rgba(24, 39, 36, 0.96) 100%);
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .rail-card {
@@ -1319,6 +1324,8 @@ function formatLocalAuthError(error) {
   gap: 18px;
   background:
     linear-gradient(180deg, rgba(251, 251, 248, 0.92) 0%, rgba(246, 247, 244, 0.86) 100%);
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .workspace-hero {
@@ -1381,11 +1388,11 @@ function formatLocalAuthError(error) {
 
 .floating-assistant-shell {
   position: fixed;
-  top: 50%;
+  top: 26px;
   right: 18px;
-  transform: translateY(-50%);
+  bottom: 22px;
   width: 336px;
-  height: min(76vh, 760px);
+  height: auto;
   display: flex;
   z-index: 8;
 }
@@ -1425,12 +1432,20 @@ function formatLocalAuthError(error) {
   .command-rail {
     border-right: none;
     border-bottom: 1px solid rgba(14, 35, 33, 0.08);
+    overflow: visible;
   }
 }
 
 @media (max-width: 1380px) {
   .authenticated-shell {
     padding-right: 18px;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .app-window {
+    height: auto;
   }
 
   .floating-assistant-shell {
@@ -1438,14 +1453,16 @@ function formatLocalAuthError(error) {
     width: auto;
     height: auto;
     display: block;
-    transform: none;
     margin-top: 18px;
   }
 }
 
 @media (max-width: 760px) {
   .desktop-shell {
+    height: auto;
+    min-height: 100vh;
     padding: 14px 10px 18px;
+    overflow: visible;
   }
 
   .window-chrome {
@@ -1478,6 +1495,11 @@ function formatLocalAuthError(error) {
 
   .chrome-right {
     width: 100%;
+  }
+
+  .workspace,
+  .command-rail {
+    overflow: visible;
   }
 }
 </style>

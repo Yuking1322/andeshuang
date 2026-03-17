@@ -201,24 +201,6 @@ function formatAiError(error) {
       <span v-for="pill in assistantStatusPills" :key="pill">{{ pill }}</span>
     </div>
 
-    <div class="assistant-context">
-      <p class="context-title">当前上下文</p>
-      <p v-if="!hasDetectionData" class="context-empty">
-        现在还处在体检阶段。先跑一次体检并导入结果，我才能更准确地告诉你这台电脑适合哪条路线、还差什么。
-      </p>
-      <div v-if="selectedPackageSummary.length" class="context-tags">
-        <span v-for="item in selectedPackageSummary.slice(0, 4)" :key="item.id">
-          {{ item.name }}
-        </span>
-        <span v-if="selectedPackageSummary.length > 4">
-          +{{ selectedPackageSummary.length - 4 }}
-        </span>
-      </div>
-      <p v-else-if="hasDetectionData" class="context-empty">
-        你还没勾选具体环境。现在更适合问“我该选什么”或“我这个场景推荐哪套组合”。
-      </p>
-    </div>
-
     <div v-if="!hasConversation" class="assistant-prompts">
       <button
         v-for="prompt in quickPrompts"
@@ -301,9 +283,9 @@ function formatAiError(error) {
 <style scoped>
 .assistant-card {
   display: grid;
-  grid-template-rows: auto auto auto auto minmax(220px, 1fr) auto;
-  gap: 16px;
-  padding: 20px;
+  grid-template-rows: auto auto auto auto minmax(140px, 1fr) auto;
+  gap: 14px;
+  padding: 18px;
   min-height: 0;
   height: 100%;
   max-height: none;
@@ -352,7 +334,7 @@ function formatAiError(error) {
 }
 
 .assistant-stats span {
-  padding: 9px 12px;
+  padding: 8px 11px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.84);
   border: 1px solid rgba(18, 40, 37, 0.06);
@@ -361,53 +343,16 @@ function formatAiError(error) {
   font-weight: 700;
 }
 
-.assistant-context {
-  padding: 14px;
-  border-radius: 18px;
-  background: rgba(18, 40, 37, 0.04);
-  border: 1px solid rgba(18, 40, 37, 0.05);
-}
-
-.context-title {
-  margin: 0;
-  color: #162b28;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.context-tags {
-  margin-top: 10px;
+.assistant-prompts {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.context-tags span {
-  padding: 8px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(18, 40, 37, 0.06);
-  color: #566966;
-  font-size: 12px;
-}
-
-.context-empty {
-  margin: 10px 0 0;
-  color: #647673;
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.assistant-prompts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
 .prompt-chip {
   border: none;
   border-radius: 999px;
-  padding: 9px 12px;
+  padding: 8px 11px;
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(18, 40, 37, 0.06);
   color: #536663;
@@ -429,8 +374,8 @@ function formatAiError(error) {
 
 .assistant-feedback {
   display: grid;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 6px;
+  padding: 10px 12px;
   border-radius: 18px;
   background: rgba(18, 40, 37, 0.04);
   border: 1px solid rgba(18, 40, 37, 0.06);
@@ -482,7 +427,7 @@ function formatAiError(error) {
 }
 
 .chat-empty {
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 18px;
   border: 1px dashed rgba(18, 40, 37, 0.12);
   background: rgba(255, 255, 255, 0.5);
@@ -573,7 +518,7 @@ function formatAiError(error) {
 
 .assistant-compose {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .compose-actions {
@@ -600,7 +545,7 @@ function formatAiError(error) {
 
 @media (max-width: 900px) {
   .assistant-card {
-    grid-template-rows: auto auto auto auto minmax(180px, 1fr) auto;
+    grid-template-rows: auto auto auto auto minmax(120px, 1fr) auto;
   }
 }
 
