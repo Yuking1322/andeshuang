@@ -1154,24 +1154,24 @@ function formatLocalAuthError(error) {
 
 .window-body {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: 372px minmax(0, 1fr);
   min-height: 0;
 }
 
 .command-rail {
-  padding: 22px;
+  padding: 18px;
   display: grid;
-  gap: 16px;
+  gap: 12px;
   border-right: 1px solid rgba(14, 35, 33, 0.08);
   background:
     linear-gradient(180deg, rgba(23, 36, 33, 0.98) 0%, rgba(24, 39, 36, 0.96) 100%);
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .rail-card {
   border-radius: 24px;
-  padding: 18px;
+  padding: 16px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #edf4f1;
@@ -1187,38 +1187,38 @@ function formatLocalAuthError(error) {
 }
 
 .rail-brand h1 {
-  margin: 14px 0 0;
-  font-size: 28px;
-  line-height: 1.12;
+  margin: 12px 0 0;
+  font-size: 23px;
+  line-height: 1.08;
   color: #f4f7f6;
 }
 
 .rail-copy,
 .rail-account p {
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   color: rgba(230, 242, 238, 0.74);
-  font-size: 14px;
-  line-height: 1.75;
+  font-size: 13px;
+  line-height: 1.62;
 }
 
 .rail-status {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .status-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .status-tile {
-  padding: 14px;
+  padding: 12px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .status-tile.highlight {
@@ -1226,18 +1226,18 @@ function formatLocalAuthError(error) {
 }
 
 .status-tile strong {
-  font-size: 28px;
+  font-size: 24px;
   color: #f3f6f5;
 }
 
 .status-tile span {
-  font-size: 12px;
+  font-size: 11px;
   color: rgba(230, 242, 238, 0.76);
 }
 
 .status-notes {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .status-notes p {
@@ -1247,7 +1247,7 @@ function formatLocalAuthError(error) {
   align-items: center;
   gap: 10px;
   color: rgba(230, 242, 238, 0.72);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .status-notes span {
@@ -1256,18 +1256,18 @@ function formatLocalAuthError(error) {
 
 .status-notes strong {
   color: #f3f6f5;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .rail-flow {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .flow-row {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
   align-items: flex-start;
 }
 
@@ -1275,46 +1275,46 @@ function formatLocalAuthError(error) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 36px;
+  height: 32px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.08);
   color: #f4f7f6;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
 
 .flow-row strong {
   display: block;
   color: #f3f6f5;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .flow-row p {
-  margin: 4px 0 0;
+  margin: 3px 0 0;
   color: rgba(230, 242, 238, 0.72);
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .rail-account h2 {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   color: #f4f7f6;
-  font-size: 24px;
+  font-size: 21px;
 }
 
 .account-meta {
-  margin-top: 16px;
+  margin-top: 12px;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .account-meta span {
-  padding: 7px 10px;
+  padding: 6px 9px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   color: #edf4f1;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .workspace {
