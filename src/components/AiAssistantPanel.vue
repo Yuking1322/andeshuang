@@ -3,6 +3,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getPackageById } from '../data/environments.js'
 import { askAiAssistant } from '../utils/aiApi.js'
+import { renderMarkdown } from '../utils/renderMarkdown.js'
 
 const MAX_HISTORY = 8
 
@@ -166,6 +167,10 @@ function scrollToBottom() {
   chatBodyRef.value.scrollTop = chatBodyRef.value.scrollHeight
 }
 
+function renderMessageContent(content) {
+  return renderMarkdown(content)
+}
+
 function formatAiError(error) {
   const code = error?.code || ''
 
@@ -236,7 +241,7 @@ function formatAiError(error) {
         :class="['chat-bubble', `is-${message.role}`, { 'is-error': message.isError }]"
       >
         <span class="bubble-role">{{ message.role === 'assistant' ? 'AI' : '你' }}</span>
-        <p>{{ message.content }}</p>
+        <div class="bubble-content" v-html="renderMessageContent(message.content)" />
       </article>
 
       <article v-if="pending" class="chat-bubble is-assistant is-loading">
@@ -246,7 +251,7 @@ function formatAiError(error) {
           <span class="thinking-dot" />
           <span class="thinking-dot" />
         </div>
-        <p>正在组织建议...</p>
+        <div class="bubble-content"><p>正在组织建议...</p></div>
       </article>
     </div>
 
@@ -508,12 +513,109 @@ function formatAiError(error) {
   color: rgba(244, 248, 246, 0.74);
 }
 
-.chat-bubble p {
+.bubble-content :deep(p),
+.bubble-content :deep(ul),
+.bubble-content :deep(ol),
+.bubble-content :deep(pre),
+.bubble-content :deep(h1),
+.bubble-content :deep(h2),
+.bubble-content :deep(h3),
+.bubble-content :deep(h4) {
   margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
+}
+
+.bubble-content {
+  display: grid;
+  gap: 10px;
+}
+
+.bubble-content :deep(p) {
+  margin: 0;
   font-size: 14px;
   line-height: 1.8;
+  word-break: break-word;
+}
+
+.bubble-content :deep(h1),
+.bubble-content :deep(h2),
+.bubble-content :deep(h3),
+.bubble-content :deep(h4) {
+  color: inherit;
+  line-height: 1.35;
+}
+
+.bubble-content :deep(h1) {
+  font-size: 18px;
+}
+
+.bubble-content :deep(h2) {
+  font-size: 17px;
+}
+
+.bubble-content :deep(h3),
+.bubble-content :deep(h4) {
+  font-size: 16px;
+}
+
+.bubble-content :deep(ul),
+.bubble-content :deep(ol) {
+  padding-left: 20px;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.bubble-content :deep(li + li) {
+  margin-top: 4px;
+}
+
+.bubble-content :deep(code) {
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: rgba(18, 40, 37, 0.08);
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 12px;
+}
+
+.bubble-content :deep(.md-pre) {
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(18, 40, 37, 0.06);
+  overflow-x: auto;
+}
+
+.bubble-content :deep(.md-pre code) {
+  display: block;
+  padding: 0;
+  background: transparent;
+  white-space: pre;
+}
+
+.bubble-content :deep(.md-code-lang) {
+  display: inline-flex;
+  margin-bottom: 8px;
+  color: #6a7c78;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.bubble-content :deep(a) {
+  color: #1f6d5f;
+  text-decoration: underline;
+}
+
+.chat-bubble.is-user .bubble-content :deep(code) {
+  background: rgba(244, 248, 246, 0.16);
+}
+
+.chat-bubble.is-user .bubble-content :deep(.md-pre) {
+  background: rgba(244, 248, 246, 0.1);
+}
+
+.chat-bubble.is-user .bubble-content :deep(a) {
+  color: #f4f8f6;
 }
 
 .assistant-compose {
