@@ -507,7 +507,7 @@ function applyQuickSearch(term) {
 
 <template>
   <section class="console-stage">
-    <div class="module-grid">
+    <div :class="['module-grid', { 'preflight-grid': !planningUnlocked }]">
       <section class="console-module inspector-module">
         <div class="module-body">
           <div class="module-header">
@@ -1008,6 +1008,14 @@ function applyQuickSearch(term) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+}
+
+.module-grid.preflight-grid {
+  grid-template-columns: 1fr;
+}
+
+.module-grid.preflight-grid .inspector-module {
+  max-width: none;
 }
 
 .console-module {
