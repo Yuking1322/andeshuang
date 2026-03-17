@@ -35,6 +35,54 @@ const pythonViaUv = (version, summary, extra = {}) =>
     }
   )
 
+const wingetPackage = (packageId, summary, extra = {}) =>
+  action(
+    [
+      `winget install --id ${packageId} --exact --accept-source-agreements --accept-package-agreements --silent --disable-interactivity`
+    ],
+    [
+      `winget uninstall --id ${packageId} --exact --silent --disable-interactivity`
+    ],
+    {
+      summary,
+      note: '当前会通过 winget 安装，适合需要官方 Windows 安装器的工具。',
+      ...extra
+    }
+  )
+
+const rustToolchain = (channel, summary) =>
+  managerActions(
+    action(
+      [
+        'choco install rustup.install -y --no-progress',
+        `rustup toolchain install ${channel}`,
+        `rustup default ${channel}`
+      ],
+      [
+        'rustup self uninstall -y'
+      ],
+      {
+        summary,
+        note: 'Rust 会通过 rustup 安装，并把默认工具链切到所选通道。'
+      }
+    ),
+    action(
+      [
+        `powershell -NoProfile -Command "$b = scoop bucket list 2>$null; if (-not ($b -match 'versions')) { scoop bucket add versions }"`,
+        'scoop install rustup-msvc',
+        `rustup toolchain install ${channel}`,
+        `rustup default ${channel}`
+      ],
+      [
+        'rustup self uninstall -y'
+      ],
+      {
+        summary,
+        note: 'Rust 会通过 rustup 安装，并把默认工具链切到所选通道。'
+      }
+    )
+  )
+
 export const automationMeta = {
   'one-click': {
     label: '真一键',
@@ -285,7 +333,7 @@ export const environments = {
   backend: {
     name: 'Java 后端',
     icon: '☕',
-    description: '围绕 Java Web、Spring Boot 和本地数据库联调的起步环境。',
+    description: 'Java 优先，也补齐 Go、Rust、.NET 和常用后端开发工具。',
     packages: [
       {
         id: 'openjdk',
@@ -346,6 +394,61 @@ export const environments = {
         ]
       },
       {
+        id: 'intellijidea',
+        name: 'IntelliJ IDEA Community',
+        description: 'Java 后端最常见的 IDE 之一，适合课程、练习和多数 Spring Boot 项目。',
+        popular: true,
+        automation: 'guided',
+        officialUrl: 'https://www.jetbrains.com/help/idea/installation-guide.html',
+        tags: ['Java', 'IDE'],
+        searchTerms: ['intellij', 'idea', 'jetbrains', 'java ide', 'spring boot'],
+        managerActions: managerActions(
+          wingetPackage('JetBrains.IntelliJIDEA.Community', '通过 winget 安装 IntelliJ IDEA Community'),
+          wingetPackage('JetBrains.IntelliJIDEA.Community', '通过 winget 安装 IntelliJ IDEA Community')
+        )
+      },
+      {
+        id: 'maven',
+        name: 'Apache Maven',
+        description: 'Java 后端覆盖面最广的构建工具，不确定团队规范时优先选它。',
+        popular: true,
+        automation: 'one-click',
+        officialUrl: 'https://maven.apache.org/install.html',
+        tags: ['Java', '构建工具'],
+        searchTerms: ['maven', 'apache maven', 'java build', 'spring boot'],
+        dependencies: ['openjdk'],
+        managerActions: managerActions(
+          action(
+            ['choco install maven -y --no-progress'],
+            ['choco uninstall maven -y --no-progress']
+          ),
+          action(
+            ['scoop install maven'],
+            ['scoop uninstall maven']
+          )
+        )
+      },
+      {
+        id: 'gradle',
+        name: 'Gradle',
+        description: '很多现代 Java / Kotlin 项目会用它；如果团队已有 Gradle 规范再选它。',
+        automation: 'one-click',
+        officialUrl: 'https://docs.gradle.org/current/userguide/installation.html',
+        tags: ['Java', '构建工具'],
+        searchTerms: ['gradle', 'java build', 'kotlin build', 'spring boot'],
+        dependencies: ['openjdk'],
+        managerActions: managerActions(
+          action(
+            ['choco install gradle -y --no-progress'],
+            ['choco uninstall gradle -y --no-progress']
+          ),
+          action(
+            ['scoop install gradle'],
+            ['scoop uninstall gradle']
+          )
+        )
+      },
+      {
         id: 'mysql',
         name: 'MySQL',
         description: '学校课程和中小型 Java Web 项目最常见的数据库选择。',
@@ -385,6 +488,129 @@ export const environments = {
             ['scoop uninstall postgresql']
           )
         )
+      },
+      {
+        id: 'dbeaver',
+        name: 'DBeaver Community',
+        description: '轻量好用的数据库客户端，适合连 MySQL、PostgreSQL 等本地库。',
+        automation: 'guided',
+        officialUrl: 'https://dbeaver.io/download/',
+        tags: ['数据库', '客户端'],
+        searchTerms: ['dbeaver', 'database client', 'mysql client', 'postgres client'],
+        managerActions: managerActions(
+          action(
+            ['choco install dbeaver -y --no-progress'],
+            ['choco uninstall dbeaver -y --no-progress']
+          ),
+          manualAction('当前建议使用 DBeaver 官方安装器或切换到 Chocolatey 方案安装。', 'https://dbeaver.io/download/')
+        )
+      },
+      {
+        id: 'powershell7',
+        name: 'PowerShell 7',
+        description: '比系统自带 PowerShell 更现代，很多脚本和开发命令跑起来会更顺。',
+        popular: true,
+        automation: 'guided',
+        officialUrl: 'https://learn.microsoft.com/en-us/windows/package-manager/winget/',
+        tags: ['终端', '脚本'],
+        searchTerms: ['powershell 7', 'pwsh', 'terminal', 'shell'],
+        managerActions: managerActions(
+          wingetPackage('Microsoft.PowerShell', '通过 winget 安装 PowerShell 7'),
+          wingetPackage('Microsoft.PowerShell', '通过 winget 安装 PowerShell 7')
+        )
+      },
+      {
+        id: 'windowsterminal',
+        name: 'Windows Terminal',
+        description: '更适合开发者的多标签终端，配合 Git、PowerShell 和 WSL 体验更好。',
+        automation: 'guided',
+        officialUrl: 'https://learn.microsoft.com/zh-tw/windows/terminal/install',
+        tags: ['终端'],
+        searchTerms: ['windows terminal', 'terminal', 'wt'],
+        managerActions: managerActions(
+          wingetPackage('Microsoft.WindowsTerminal', '通过 winget 安装 Windows Terminal'),
+          wingetPackage('Microsoft.WindowsTerminal', '通过 winget 安装 Windows Terminal')
+        )
+      },
+      {
+        id: 'dotnet',
+        name: '.NET SDK',
+        description: '如果你同时会碰 C#、ASP.NET 或公司内部工具链，可以一起补上。',
+        automation: 'guided',
+        officialUrl: 'https://dotnet.microsoft.com/en-us/download',
+        tags: ['.NET', 'C#'],
+        searchTerms: ['dotnet', '.net', 'csharp', 'asp.net'],
+        recommendedVersion: '10',
+        versionOptions: [
+          {
+            id: '10',
+            label: '10 LTS 推荐',
+            summary: '当前长期支持版本，适合新项目',
+            managerActions: managerActions(
+              wingetPackage('Microsoft.DotNet.SDK.10', '通过 winget 安装 .NET 10 SDK'),
+              wingetPackage('Microsoft.DotNet.SDK.10', '通过 winget 安装 .NET 10 SDK')
+            )
+          },
+          {
+            id: '9',
+            label: '9',
+            summary: '适合跟已有项目保持一致',
+            managerActions: managerActions(
+              wingetPackage('Microsoft.DotNet.SDK.9', '通过 winget 安装 .NET 9 SDK'),
+              wingetPackage('Microsoft.DotNet.SDK.9', '通过 winget 安装 .NET 9 SDK')
+            )
+          }
+        ]
+      },
+      {
+        id: 'go',
+        name: 'Go',
+        description: '当前很主流的后端和 CLI 语言，如果你会做服务或工具开发，可以一起补上。',
+        popular: true,
+        automation: 'one-click',
+        officialUrl: 'https://go.dev/doc/install',
+        tags: ['Go', '后端'],
+        searchTerms: ['go', 'golang', 'backend', 'cli'],
+        managerActions: managerActions(
+          action(
+            ['choco install golang -y --no-progress'],
+            ['choco uninstall golang -y --no-progress']
+          ),
+          action(
+            ['scoop install go'],
+            ['scoop uninstall go']
+          )
+        )
+      },
+      {
+        id: 'rust',
+        name: 'Rust',
+        description: '想做高性能服务、CLI 或系统工具时，它也是很主流的选择。',
+        automation: 'guided',
+        officialUrl: 'https://www.rust-lang.org/tools/install',
+        tags: ['Rust', '系统开发'],
+        searchTerms: ['rust', 'rustup', 'cargo', 'backend', 'cli'],
+        recommendedVersion: 'stable',
+        versionOptions: [
+          {
+            id: 'stable',
+            label: 'stable 推荐',
+            summary: '适合正式开发',
+            managerActions: rustToolchain('stable', '默认安装稳定版工具链')
+          },
+          {
+            id: 'beta',
+            label: 'beta',
+            summary: '适合提前验证新能力',
+            managerActions: rustToolchain('beta', '默认安装 beta 工具链')
+          },
+          {
+            id: 'nightly',
+            label: 'nightly',
+            summary: '适合实验性特性和高级编译选项',
+            managerActions: rustToolchain('nightly', '默认安装 nightly 工具链')
+          }
+        ]
       },
       {
         id: 'redis',

@@ -1,4 +1,5 @@
 import { isSameOriginRequest, json, readJson } from '../../_shared/admin.js'
+import { buildAiSystemMessages } from '../../_shared/ai-prompt.js'
 import { getLinuxDOConfig } from '../../_shared/linuxdo.js'
 import { readSession } from '../../_shared/session.js'
 
@@ -7,6 +8,8 @@ const DEFAULT_AI_MODEL = 'gpt-5.2'
 const MAX_MESSAGES = 8
 const MAX_MESSAGE_CHARS = 2000
 const MAX_SELECTED_PACKAGES = 12
+const MAX_INSTALLED_PACKAGES = 24
+const MAX_AVAILABLE_PACKAGES = 64
 
 export async function onRequestPost(context) {
   if (!isSameOriginRequest(context.request)) {
@@ -226,6 +229,8 @@ function normalizeContext(source) {
 
   return {
     selectedPackages,
+    installedPackages: normalizePackageCollection(safeSource.installedPackages, MAX_INSTALLED_PACKAGES),
+    availablePackages: normalizeAvailablePackages(safeSource.availablePackages),
     selectedCount: toSafeInt(safeSource.selectedCount),
     pendingCount: toSafeInt(safeSource.pendingCount),
     detectedInstalledCount: toSafeInt(safeSource.detectedInstalledCount),
@@ -236,47 +241,50 @@ function normalizeContext(source) {
   }
 }
 
-function buildUpstreamMessages(payload, user) {
-  return [
-    {
-      role: 'system',
-      content: [
-        '你是“安的爽”的内置 AI 助手，服务对象是正在配置 Windows 开发环境的用户。',
-        '你的主要职责是：推荐环境组合、解释安装策略、帮助排查脚本和环境问题。',
-        '请默认使用简体中文回答，语气简洁、直接、可执行。',
-        '不要假装你已经执行过任何安装、体检、下载或系统修改。',
-        '如果信息不足，要明确说出你是在基于当前页面上下文做推测。',
-        '优先给出短步骤和明确取舍，不要写成长篇空话。'
-      ].join('\n')
-    },
-    {
-      role: 'system',
-      content: buildContextPrompt(payload.context, user)
-    },
-    ...payload.messages
-  ]
+function normalizePackageCollection(source, maxCount) {
+  return Array.isArray(source)
+    ? source
+        .slice(0, maxCount)
+        .map((item) => ({
+          id: String(item?.id || '').trim(),
+          name: String(item?.name || '').trim(),
+          categoryName: String(item?.categoryName || '').trim()
+        }))
+        .filter((item) => item.id && item.name)
+    : []
 }
 
-function buildContextPrompt(context, user) {
-  const selectedPackagesText = context.selectedPackages.length
-    ? context.selectedPackages
-        .map((item) => `- ${item.name} (${item.id}) / ${item.categoryName || '未分类'}`)
-        .join('\n')
-    : '- 当前还没有勾选具体环境'
+function normalizeAvailablePackages(source) {
+  return Array.isArray(source)
+    ? source
+        .slice(0, MAX_AVAILABLE_PACKAGES)
+        .map((item) => ({
+          id: String(item?.id || '').trim(),
+          name: String(item?.name || '').trim(),
+          categoryName: String(item?.categoryName || '').trim(),
+          supportedManagers: Array.isArray(item?.supportedManagers)
+            ? item.supportedManagers
+                .map((value) => String(value || '').trim())
+                .filter(Boolean)
+                .slice(0, 3)
+            : [],
+          versionOptions: Array.isArray(item?.versionOptions)
+            ? item.versionOptions
+                .map((value) => String(value || '').trim())
+                .filter(Boolean)
+                .slice(0, 6)
+            : [],
+          popular: Boolean(item?.popular)
+        }))
+        .filter((item) => item.id && item.name)
+    : []
+}
 
+function buildUpstreamMessages(payload, user) {
   return [
-    '这是当前控制台上下文，请结合它回答：',
-    `- 登录用户：${user?.name || user?.username || '未知用户'} (@${user?.username || 'unknown'})`,
-    `- 已选环境数量：${context.selectedCount}`,
-    `- 待安装数量：${context.pendingCount}`,
-    `- 已识别安装数量：${context.detectedInstalledCount}`,
-    `- 自动依赖数量：${context.autoDependencyCount}`,
-    `- 已跳过数量：${context.skippedInstalledCount}`,
-    `- 是否已导入体检结果：${context.hasDetectionData ? '是' : '否'}`,
-    `- 当前安装方式：${context.installer}`,
-    '- 已选环境列表：',
-    selectedPackagesText
-  ].join('\n')
+    ...buildAiSystemMessages(payload.context, user),
+    ...payload.messages
+  ]
 }
 
 function extractAssistantContent(payload) {

@@ -1,7 +1,7 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getPackageById } from '../data/environments.js'
+import { getAllPackages, getPackageById, getSupportedManagers } from '../data/environments.js'
 import { askAiAssistant } from '../utils/aiApi.js'
 import { renderMarkdown } from '../utils/renderMarkdown.js'
 
@@ -38,6 +38,28 @@ const selectedPackageSummary = computed(() =>
       name: pkg.name,
       categoryName: pkg.categoryName || ''
     }))
+)
+
+const detectedInstalledSummary = computed(() =>
+  (props.dashboardState?.detectedInstalledIds || [])
+    .map((id) => getPackageById(id))
+    .filter(Boolean)
+    .map((pkg) => ({
+      id: pkg.id,
+      name: pkg.name,
+      categoryName: pkg.categoryName || ''
+    }))
+)
+
+const supportedPackageCatalog = computed(() =>
+  getAllPackages().map((pkg) => ({
+    id: pkg.id,
+    name: pkg.name,
+    categoryName: pkg.categoryName || '',
+    supportedManagers: getSupportedManagers(pkg),
+    popular: Boolean(pkg.popular),
+    versionOptions: Array.isArray(pkg.versionOptions) ? pkg.versionOptions.map((item) => item.label) : []
+  }))
 )
 
 const installerLabel = computed(() =>
@@ -140,6 +162,8 @@ function buildRequestMessages() {
 function buildRequestContext() {
   return {
     selectedPackages: selectedPackageSummary.value,
+    installedPackages: detectedInstalledSummary.value,
+    availablePackages: supportedPackageCatalog.value,
     selectedCount: props.selectedPackageIds.length,
     pendingCount: Number(props.dashboardState?.selectedPendingCount || 0),
     detectedInstalledCount: Number(props.dashboardState?.detectedInstalledCount || 0),

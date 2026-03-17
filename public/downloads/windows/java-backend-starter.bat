@@ -47,6 +47,19 @@ echo [成功] Chocolatey 安装完成。
   echo [跳过] 已检测到 Chocolatey。
 )
 echo.
+echo [检查] winget 是否可用...
+where winget >nul 2>nul
+if %errorlevel% neq 0 (
+  echo [警告] 未检测到 winget，某些软件可能无法安装。
+  echo [提示] winget 在 Windows 10 1809+ 和 Windows 11 上默认可用。
+  echo [提示] 如需安装 winget，请访问 Microsoft Store 搜索"应用安装程序"。
+  echo.
+  pause
+  exit /b 1
+) else (
+  echo [跳过] 已检测到 winget。
+)
+echo.
 cls
 echo ===================================== > "%LOGFILE%"
 echo 安的爽 安装日志 >> "%LOGFILE%"
@@ -89,6 +102,22 @@ if defined PACKAGE_FAILED (
   echo [成功] Visual Studio Code >> "%LOGFILE%"
 )
 echo.
+echo [安装] IntelliJ IDEA Community
+echo [安装] IntelliJ IDEA Community >> "%LOGFILE%"
+echo [提示] 当前会通过 winget 安装，适合需要官方 Windows 安装器的工具。
+echo [提示] 当前会通过 winget 安装，适合需要官方 Windows 安装器的工具。 >> "%LOGFILE%"
+set "PACKAGE_FAILED="
+call winget install --id JetBrains.IntelliJIDEA.Community --exact --accept-source-agreements --accept-package-agreements --silent --disable-interactivity >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
+if defined PACKAGE_FAILED (
+  echo [失败] IntelliJ IDEA Community
+  echo [失败] IntelliJ IDEA Community >> "%LOGFILE%"
+  set /a FAILED_COUNT+=1
+) else (
+  echo [成功] IntelliJ IDEA Community
+  echo [成功] IntelliJ IDEA Community >> "%LOGFILE%"
+)
+echo.
 echo [安装] Temurin JDK · 21 LTS 推荐
 echo [安装] Temurin JDK · 21 LTS 推荐 >> "%LOGFILE%"
 set "PACKAGE_FAILED="
@@ -101,6 +130,20 @@ if defined PACKAGE_FAILED (
 ) else (
   echo [成功] Temurin JDK · 21 LTS 推荐
   echo [成功] Temurin JDK · 21 LTS 推荐 >> "%LOGFILE%"
+)
+echo.
+echo [安装] Apache Maven
+echo [安装] Apache Maven >> "%LOGFILE%"
+set "PACKAGE_FAILED="
+call choco install maven -y --no-progress >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
+if defined PACKAGE_FAILED (
+  echo [失败] Apache Maven
+  echo [失败] Apache Maven >> "%LOGFILE%"
+  set /a FAILED_COUNT+=1
+) else (
+  echo [成功] Apache Maven
+  echo [成功] Apache Maven >> "%LOGFILE%"
 )
 echo.
 echo [安装] MySQL
@@ -117,22 +160,6 @@ if defined PACKAGE_FAILED (
 ) else (
   echo [成功] MySQL
   echo [成功] MySQL >> "%LOGFILE%"
-)
-echo.
-echo [安装] Redis
-echo [安装] Redis >> "%LOGFILE%"
-echo [提示] Windows 环境下更适合作为本地开发依赖，正式生产建议使用 Linux 服务。
-echo [提示] Windows 环境下更适合作为本地开发依赖，正式生产建议使用 Linux 服务。 >> "%LOGFILE%"
-set "PACKAGE_FAILED="
-call choco install redis-64 -y --no-progress >> "%LOGFILE%" 2>&1
-if !errorlevel! neq 0 set "PACKAGE_FAILED=1"
-if defined PACKAGE_FAILED (
-  echo [失败] Redis
-  echo [失败] Redis >> "%LOGFILE%"
-  set /a FAILED_COUNT+=1
-) else (
-  echo [成功] Redis
-  echo [成功] Redis >> "%LOGFILE%"
 )
 echo.
 

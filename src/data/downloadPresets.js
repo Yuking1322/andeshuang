@@ -24,8 +24,8 @@ export const windowsPresetDownloads = [
     id: 'java-backend-starter',
     name: 'Java 后端包',
     fileName: 'java-backend-starter.bat',
-    description: 'Git / VS Code / Temurin JDK / MySQL / Redis',
-    packageIds: ['git', 'vscode', 'openjdk', 'mysql', 'redis']
+    description: 'Git / VS Code / IntelliJ IDEA / Temurin JDK / Maven / MySQL',
+    packageIds: ['git', 'vscode', 'intellijidea', 'openjdk', 'maven', 'mysql']
   },
   {
     id: 'ai-local-starter',

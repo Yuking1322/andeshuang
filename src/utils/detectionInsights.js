@@ -113,36 +113,52 @@ const sceneBlueprints = [
     id: 'backend',
     name: 'Java 后端',
     icon: '☕',
-    suggestedPackageIds: ['openjdk', 'mysql', 'redis'],
+    suggestedPackageIds: ['openjdk', 'intellijidea', 'maven', 'mysql', 'redis'],
     baseRequirements: [
-      createRequirement('JDK', ['openjdk'])
+      createRequirement('JDK', ['openjdk']),
+      createRequirement('Maven 或 Gradle', ['maven', 'gradle'])
     ],
     recommendedRequirements: [
+      createRequirement('IntelliJ IDEA 或 VS Code', ['intellijidea', 'vscode']),
       createRequirement('MySQL 或 PostgreSQL', ['mysql', 'postgresql']),
       createRequirement('Redis', ['redis'])
     ],
     buildCapability(state) {
       const hasDatabase = state.hasPackage('mysql') || state.hasPackage('postgresql')
+      const hasBuildTool = state.hasPackage('maven') || state.hasPackage('gradle')
 
       if (!state.hasPackage('openjdk')) {
         return 'Java 项目还跑不起来，服务端入口环境还没打通。'
       }
 
+      if (!hasBuildTool) {
+        return '已经有 JDK 了，但构建链路还没打通，项目还不算能真正开工。'
+      }
+
       if (hasDatabase && state.hasPackage('redis')) {
-        return '已经能开始跑 Java 服务，并做本地数据库和缓存联调。'
+        return '已经能开始写、构建和运行 Java 服务，并做本地数据库和缓存联调。'
       }
 
       if (hasDatabase) {
-        return '已经能开始跑 Java 服务和本地数据库联调。'
+        return '已经能开始写、构建和运行 Java 服务，并做本地数据库联调。'
       }
 
-      return '已经能开始写和跑 Java 服务，但本地数据库联调还没打通。'
+      return '已经能开始写和构建 Java 服务，但本地数据库联调还没打通。'
     },
     buildNextStep(state) {
       const hasDatabase = state.hasPackage('mysql') || state.hasPackage('postgresql')
+      const hasBuildTool = state.hasPackage('maven') || state.hasPackage('gradle')
 
       if (!state.hasPackage('openjdk')) {
         return '先补 JDK，Java 项目还跑不起来。'
+      }
+
+      if (!hasBuildTool) {
+        return '下一步先补 Maven；如果团队已有 Gradle 规范，再改成补 Gradle。'
+      }
+
+      if (!state.hasPackage('intellijidea') && !state.hasPackage('vscode')) {
+        return '下一步补一个 IDE，优先 IntelliJ IDEA，也可以先用 VS Code 起步。'
       }
 
       if (!hasDatabase) {

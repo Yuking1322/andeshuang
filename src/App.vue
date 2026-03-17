@@ -51,6 +51,7 @@ const dashboardState = ref({
   selectedCount: 0,
   selectedPendingCount: 0,
   detectedInstalledCount: 0,
+  detectedInstalledIds: [],
   autoDependencyCount: 0,
   skippedInstalledCount: 0,
   hasDetectionData: false,

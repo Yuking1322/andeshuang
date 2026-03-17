@@ -36,7 +36,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'dashboard-update'])
 
-const quickSearchOptions = ['前端', 'Python', 'Jupyter', 'Java', 'MySQL', 'Redis', 'Ollama', 'Docker']
+const quickSearchOptions = ['前端', 'Python', 'Java', 'Maven', 'Go', 'Rust', 'Ollama', 'Docker']
 const filterTabs = [
   { id: 'all', label: '全部场景', icon: '✨' },
   ...Object.entries(environments).map(([key, env]) => ({
@@ -202,6 +202,7 @@ watch(
       selectedCount: selectedCount.value,
       selectedPendingCount: selectedPendingCount.value,
       detectedInstalledCount: detectedInstalledCount.value,
+      detectedInstalledIds: installedPackageIds.value,
       autoDependencyCount: autoDependencyCount.value,
       skippedInstalledCount: skippedInstalledCount.value,
       hasDetectionData: hasDetectionData.value,
@@ -819,7 +820,7 @@ function applyQuickSearch(term) {
 
             <div v-if="filteredGroups.length === 0" class="empty-state">
               <h4>没有找到符合条件的环境</h4>
-              <p>试试清空筛选，或者换一个关键词，比如 前端、Python、Java、MySQL、Ollama。</p>
+              <p>试试清空筛选，或者换一个关键词，比如 前端、Python、Java、Maven、Go、Ollama。</p>
             </div>
 
             <div
