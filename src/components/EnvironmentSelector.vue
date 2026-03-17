@@ -633,97 +633,104 @@ function applyQuickSearch(term) {
         >
       </section>
 
-      <section v-if="planningUnlocked" class="console-module plan-module">
-        <div class="module-body">
-          <div class="module-header">
-            <div>
-              <p class="module-label">场景规划</p>
-              <h3>决定为了你的目标，这台电脑还缺什么</h3>
+      <div v-if="planningUnlocked" class="right-stack">
+        <section class="console-module plan-module">
+          <div class="module-body">
+            <div class="module-header">
+              <div>
+                <p class="module-label">场景规划</p>
+                <h3>决定为了你的目标，这台电脑还缺什么</h3>
+              </div>
+              <span class="module-chip warm">{{ selectedPendingCount }} 项待补齐</span>
             </div>
-            <span class="module-chip warm">{{ selectedPendingCount }} 项待补齐</span>
+
+            <p class="module-copy">
+              这里不是让你把包全装一遍，而是按目标场景挑真正需要的环境、版本和依赖。
+            </p>
+
+            <div v-if="!isWindowsPlatform" class="platform-alert">
+              当前检测到 {{ platformInfo.label }}。v1 只完整支持 Windows 的体检、脚本执行和场景包分发。
+            </div>
+
+            <div class="planner-block">
+              <p class="planner-label">底层安装通道</p>
+              <el-radio-group v-model="useChocolatey">
+                <el-radio :value="true">Chocolatey（覆盖更广）</el-radio>
+                <el-radio :value="false">Scoop（更轻量）</el-radio>
+              </el-radio-group>
+              <p class="module-note">{{ managerSummary }}</p>
+            </div>
+
+            <div class="module-actions">
+              <el-button plain :disabled="selectedCount === 0" @click="clearSelection">
+                清空选择
+              </el-button>
+              <el-button plain @click="clearFilters">
+                清空筛选
+              </el-button>
+              <el-button plain :disabled="selectedCount === 0 || !isWindowsPlatform" @click="handleGenerateUninstallScript">
+                后悔药
+              </el-button>
+              <el-button
+                type="primary"
+                :icon="Download"
+                :disabled="selectedCount === 0 || !isWindowsPlatform"
+                @click="handleGenerateScript"
+              >
+                生成安装脚本
+              </el-button>
+            </div>
           </div>
+        </section>
 
-          <p class="module-copy">
-            这里不是让你把包全装一遍，而是按目标场景挑真正需要的环境、版本和依赖。
-          </p>
+        <section class="console-module preset-module">
+          <div class="module-body">
+            <div class="module-header">
+              <div>
+                <p class="module-label">起步场景包</p>
+                <h3>不想细选时，直接下载预置好的起步方案</h3>
+                <p class="module-copy compact">更适合第一次搭环境的同学，先跑起来，再回头精调。</p>
+              </div>
+              <div class="module-header-side">
+                <el-tooltip placement="top-start" effect="light" :teleported="false">
+                  <template #content>
+                    <div class="help-tooltip">
+                      <strong>报错怎么办</strong>
+                      <p>安装或卸载失败时，先去看脚本旁边自动生成的日志文件。</p>
+                      <ul>
+                        <li v-for="tip in troubleshootingTips" :key="tip">{{ tip }}</li>
+                      </ul>
+                    </div>
+                  </template>
+                  <button type="button" class="help-badge" aria-label="查看报错提示">
+                    !
+                  </button>
+                </el-tooltip>
+                <span class="module-chip warm">静态分发</span>
+              </div>
+            </div>
 
-          <div v-if="!isWindowsPlatform" class="platform-alert">
-            当前检测到 {{ platformInfo.label }}。v1 只完整支持 Windows 的体检、脚本执行和场景包分发。
+            <div v-if="isWindowsPlatform" class="preset-grid">
+              <a
+                v-for="preset in presetDownloads"
+                :key="preset.id"
+                class="preset-card"
+                :href="preset.href"
+                download
+              >
+                <strong>{{ preset.name }}</strong>
+                <span>{{ preset.description }}</span>
+                <em>{{ preset.fileName }}</em>
+              </a>
+            </div>
+
+            <div v-else class="platform-alert">
+              当前检测到 {{ platformInfo.label }}。预置场景包目前只提供 Windows 版本，后续再补 Linux 脚本分发。
+            </div>
           </div>
-
-          <div class="planner-block">
-            <p class="planner-label">底层安装通道</p>
-            <el-radio-group v-model="useChocolatey">
-              <el-radio :value="true">Chocolatey（覆盖更广）</el-radio>
-              <el-radio :value="false">Scoop（更轻量）</el-radio>
-            </el-radio-group>
-            <p class="module-note">{{ managerSummary }}</p>
-          </div>
-
-          <div class="module-actions">
-            <el-button plain :disabled="selectedCount === 0" @click="clearSelection">
-              清空选择
-            </el-button>
-            <el-button plain @click="clearFilters">
-              清空筛选
-            </el-button>
-            <el-button plain :disabled="selectedCount === 0 || !isWindowsPlatform" @click="handleGenerateUninstallScript">
-              后悔药
-            </el-button>
-            <el-button
-              type="primary"
-              :icon="Download"
-              :disabled="selectedCount === 0 || !isWindowsPlatform"
-              @click="handleGenerateScript"
-            >
-              生成安装脚本
-            </el-button>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <section v-if="planningUnlocked" class="console-module preset-module">
-      <div class="module-body">
-        <div class="module-header">
-          <div>
-            <p class="module-label">起步场景包</p>
-            <h3>不想细选时，直接下载预置好的起步方案</h3>
-            <p class="module-copy compact">更适合第一次搭环境的同学，先跑起来，再回头精调。</p>
-          </div>
-          <span class="module-chip warm">静态分发</span>
-        </div>
-
-        <div v-if="isWindowsPlatform" class="preset-grid">
-          <a
-            v-for="preset in presetDownloads"
-            :key="preset.id"
-            class="preset-card"
-            :href="preset.href"
-            download
-          >
-            <strong>{{ preset.name }}</strong>
-            <span>{{ preset.description }}</span>
-            <em>{{ preset.fileName }}</em>
-          </a>
-        </div>
-
-        <div v-else class="platform-alert">
-          当前检测到 {{ platformInfo.label }}。预置场景包目前只提供 Windows 版本，后续再补 Linux 脚本分发。
-        </div>
-
-        <div class="trouble-box">
-          <div>
-            <p class="planner-label">报错怎么办</p>
-            <p class="trouble-copy">安装或卸载失败时，不要让用户一脸懵，先去看脚本旁边的日志文件。</p>
-          </div>
-
-          <ul>
-            <li v-for="tip in troubleshootingTips" :key="tip">{{ tip }}</li>
-          </ul>
-        </div>
+        </section>
       </div>
-    </section>
+    </div>
 
     <section v-if="planningUnlocked" class="console-module library-module">
       <div class="module-body library-body">
@@ -1019,6 +1026,12 @@ function applyQuickSearch(term) {
   max-width: none;
 }
 
+.right-stack {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
 .console-module {
   border-radius: 28px;
   overflow: hidden;
@@ -1059,6 +1072,12 @@ function applyQuickSearch(term) {
   align-items: flex-start;
   gap: 14px;
   flex-wrap: wrap;
+}
+
+.module-header-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .module-label {
@@ -1319,8 +1338,8 @@ function applyQuickSearch(term) {
   font-style: normal;
 }
 
-.trouble-box {
-  margin-top: 20px;
+.preflight-box {
+  margin-top: 0;
   display: grid;
   gap: 14px;
   padding: 18px;
@@ -1335,15 +1354,51 @@ function applyQuickSearch(term) {
   line-height: 1.75;
 }
 
-.trouble-box ul {
+.preflight-box ul {
   margin: 0;
   padding-left: 18px;
   color: #647673;
   line-height: 1.8;
 }
 
-.preflight-box {
-  margin-top: 0;
+.help-badge {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(196, 123, 54, 0.3);
+  border-radius: 999px;
+  background: rgba(196, 123, 54, 0.12);
+  color: #8e5821;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: help;
+  outline: none;
+}
+
+.help-tooltip {
+  max-width: 280px;
+  display: grid;
+  gap: 8px;
+}
+
+.help-tooltip strong {
+  color: #162b28;
+  font-size: 13px;
+}
+
+.help-tooltip p {
+  margin: 0;
+  color: #5f726f;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.help-tooltip ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #5f726f;
+  font-size: 12px;
+  line-height: 1.7;
 }
 
 .search-shell {
