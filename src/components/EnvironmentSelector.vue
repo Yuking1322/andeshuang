@@ -1008,6 +1008,7 @@ function applyQuickSearch(term) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+  align-items: start;
 }
 
 .module-grid.preflight-grid {
@@ -1024,6 +1025,7 @@ function applyQuickSearch(term) {
   border: 1px solid rgba(18, 40, 37, 0.08);
   background: rgba(255, 255, 255, 0.76);
   box-shadow: 0 20px 40px rgba(21, 37, 34, 0.08);
+  align-self: start;
 }
 
 .inspector-module {
